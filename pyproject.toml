@@ -1,0 +1,40 @@
+[project]
+name = "public-money-fr"
+version = "0.1.0"
+description = "Open data projects on French public money, built on a shared core package."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core", "projects"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [".doc", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["core"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
