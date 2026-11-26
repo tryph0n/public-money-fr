@@ -314,6 +314,56 @@ def test_write_reads_back_metadata(tmp_path: Path) -> None:
     assert metadata.commit == COMMIT
 
 
+def test_change_notes_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "t.parquet"
+    notes = {"b": "Kept the programme rows only.", "a": "Converted thousands to euros."}
+    written = write_table(
+        good_frames()["state_budget_lines"],
+        "state_budget_lines",
+        path,
+        ["a", "b"],
+        changes=notes,
+        build_date=BUILD_DATE,
+        commit=COMMIT,
+    )
+    metadata = read_metadata(path)
+    assert metadata == written
+    assert dict(metadata.changes) == notes
+    assert list(metadata.changes) == ["a", "b"]
+
+
+def test_change_notes_default_to_none(tmp_path: Path) -> None:
+    path = tmp_path / "t.parquet"
+    frame = good_frames()["state_budget_lines"]
+    write_table(frame, "state_budget_lines", path, ["a"], build_date=BUILD_DATE, commit=COMMIT)
+    assert dict(read_metadata(path).changes) == {}
+
+
+@pytest.mark.parametrize(
+    ("notes", "message"),
+    [
+        ({"c": "Kept two rows."}, r"change notes for sources it does not use: c"),
+        ({"a": "  "}, r"empty change notes for: a"),
+    ],
+)
+def test_bad_change_notes_write_no_file(
+    tmp_path: Path, notes: dict[str, str], message: str
+) -> None:
+    path = tmp_path / "t.parquet"
+    frame = good_frames()["state_budget_lines"]
+    with pytest.raises(TableError, match=message):
+        write_table(
+            frame,
+            "state_budget_lines",
+            path,
+            ["a"],
+            changes=notes,
+            build_date=BUILD_DATE,
+            commit=COMMIT,
+        )
+    assert not path.exists()
+
+
 def test_written_rows_and_types_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "t.parquet"
     frame = good_frames()["state_budget_lines"]
