@@ -196,15 +196,17 @@ def test_broken_column_is_named() -> None:
 
 def test_missing_column_is_named() -> None:
     frame = good_frames()["state_budget_lines"].drop(columns=["basis"])
-    with pytest.raises(TableError, match="basis"):
+    with pytest.raises(TableError, match=r"column 'basis': missing column") as error:
         validate_table(frame, "state_budget_lines")
+    assert "column 'state_budget_lines'" not in str(error.value)
 
 
 def test_extra_column_is_refused() -> None:
     frame = good_frames()["state_budget_lines"]
     frame["extra"] = 1
-    with pytest.raises(TableError, match="extra"):
+    with pytest.raises(TableError, match=r"column 'extra': unexpected column") as error:
         validate_table(frame, "state_budget_lines")
+    assert "column 'state_budget_lines'" not in str(error.value)
 
 
 def test_extra_column_is_allowed_in_legislative_texts() -> None:
@@ -219,9 +221,9 @@ def test_code_column_refuses_a_number() -> None:
 
 
 def test_code_keeps_leading_zero_as_text() -> None:
-    frame = good_frames()["nomenclature"]
-    frame["mission_code"] = ["06", None]
-    validate_table(frame, "nomenclature")
+    frame = good_frames()["state_budget_lines"]
+    frame["programme_code"] = ["006", "102"]
+    validate_table(frame, "state_budget_lines")
 
 
 def test_year_must_be_int16() -> None:
@@ -351,3 +353,137 @@ def test_file_without_metadata_is_refused(tmp_path: Path) -> None:
     pd.DataFrame({"a": [1]}).to_parquet(path)
     with pytest.raises(TableError, match="no table metadata"):
         read_metadata(path)
+
+
+EXPECTED_KEYS = {
+    "state_budget_lines": [
+        "year",
+        "budget_part",
+        "programme_code",
+        "title_group",
+        "stage",
+        "credit_type",
+    ],
+    "nomenclature": ["year", "programme_code"],
+    "state_revenue_lines": ["year", "budget_part", "hierarchy_level", "line_label", "stage"],
+    "state_employment": ["year", "programme_code", "stage"],
+    "state_monthly": ["year", "month", "category", "sub_category", "line_label"],
+    "state_balance_sheet": ["year", "statement", "line_label"],
+    "performance_indicators": ["year", "programme_code", "indicator_code", "sub_indicator_code"],
+    "macro_fr": ["year", "month", "indicator", "sector", "unit", "source_id"],
+    "fiscal_commitments": ["document", "document_date", "target_year", "indicator"],
+}
+
+
+def test_keys_are_those_of_section_5() -> None:
+    assert {table: list(key) for table, key in KEYS.items()} == EXPECTED_KEYS
+
+
+@pytest.mark.parametrize("table", sorted(EXPECTED_KEYS))
+def test_each_key_column_is_needed_to_tell_rows_apart(table: str) -> None:
+    key = EXPECTED_KEYS[table]
+    for column in key:
+        assert column in KEYS[table], f"{table}: key column {column} is missing"
+    assert len(KEYS[table]) == len(key), f"{table}: key has an extra column"
+
+
+@pytest.mark.parametrize("code", ["7", "10", "1011", "10A", "", " 10", "١٢٣", "123\n"])
+@pytest.mark.parametrize("table", ["state_budget_lines", "state_employment"])
+def test_programme_code_must_be_three_digits(table: str, code: str) -> None:
+    frame = good_frames()[table]
+    frame.loc[0, "programme_code"] = code
+    with pytest.raises(TableError, match="programme_code"):
+        validate_table(frame, table)
+
+
+def test_programme_code_three_digits_in_nomenclature_and_indicators() -> None:
+    for table in ("nomenclature", "performance_indicators"):
+        frame = good_frames()[table]
+        frame.loc[0, "programme_code"] = "7"
+        with pytest.raises(TableError, match="programme_code"):
+            validate_table(frame, table)
+
+
+def test_nullable_programme_code_keeps_its_null() -> None:
+    frame = good_frames()["performance_indicators"]
+    assert frame["programme_code"].isna().any()
+    validate_table(frame, "performance_indicators")
+
+
+@pytest.mark.parametrize("code", ["J", "JAA", "06", "ja", "J1", ""])
+def test_mission_code_must_be_two_capital_letters(code: str) -> None:
+    frame = good_frames()["nomenclature"]
+    frame.loc[0, "mission_code"] = code
+    with pytest.raises(TableError, match="mission_code"):
+        validate_table(frame, "nomenclature")
+
+
+def test_line_code_must_be_digits() -> None:
+    frame = good_frames()["state_revenue_lines"]
+    frame.loc[0, "line_code"] = "11A"
+    with pytest.raises(TableError, match="line_code"):
+        validate_table(frame, "state_revenue_lines")
+
+
+def test_a_year_and_stage_cannot_mix_two_basis_values() -> None:
+    frame = good_frames()["state_budget_lines"]
+    frame["basis"] = ["budget", "pdf_extraction"]
+    with pytest.raises(TableError, match="one_basis_for_each_year_and_stage"):
+        validate_table(frame, "state_budget_lines")
+    frame["stage"] = ["voted", "executed"]
+    validate_table(frame, "state_budget_lines")
+
+
+@pytest.mark.parametrize(
+    ("changes", "rule"),
+    [
+        ({"target_value": [None, None]}, "target_value_filled_when_target_kind_is_numeric"),
+        (
+            {"target_kind": ["none", "qualitative"], "target_value": [90.0, None]},
+            "target_value_null_when_target_kind_is_none",
+        ),
+        ({"target_text": [None, None]}, "target_text_filled_when_target_kind_is_qualitative"),
+    ],
+)
+def test_target_columns_follow_target_kind(changes: dict[str, list[object]], rule: str) -> None:
+    frame = good_frames()["performance_indicators"]
+    for column, values in changes.items():
+        frame[column] = values
+    frame["target_value"] = frame["target_value"].astype("float64")
+    with pytest.raises(TableError, match=rule):
+        validate_table(frame, "performance_indicators")
+
+
+def test_hand_entry_needs_a_reference_and_file_entry_has_none() -> None:
+    frame = good_frames()["fiscal_commitments"]
+    frame["reference"] = [None, None]
+    with pytest.raises(TableError, match="reference_filled_when_entry_method_is_hand"):
+        validate_table(frame, "fiscal_commitments")
+    frame["reference"] = ["art. 2", "art. 1"]
+    with pytest.raises(TableError, match="reference_null_when_entry_method_is_file"):
+        validate_table(frame, "fiscal_commitments")
+
+
+def test_all_null_nullable_column_round_trips_with_the_schema_types(tmp_path: Path) -> None:
+    path = tmp_path / "t.parquet"
+    frame = good_frames()["macro_fr"]
+    frame["sector"] = pd.Series([None, None], dtype="string")
+    frame["month"] = pd.array([None, None], dtype="Int8")
+    frame["unit"] = ["eur", "pct"]
+    write_table(frame, "macro_fr", path, ["a"], build_date=BUILD_DATE, commit=COMMIT)
+    parquet_types = {field.name: str(field.type) for field in pq.read_schema(path)}
+    assert parquet_types["sector"] == "string"
+    assert parquet_types["month"] == "int8"
+    back = pd.read_parquet(path)
+    assert back["sector"].isna().all()
+    validate_table(back, "macro_fr")
+
+
+def test_all_null_object_column_is_written_as_string(tmp_path: Path) -> None:
+    path = tmp_path / "t.parquet"
+    frame = good_frames()["macro_fr"]
+    frame["sector"] = [None, None]
+    frame["unit"] = ["eur", "pct"]
+    write_table(frame, "macro_fr", path, ["a"], build_date=BUILD_DATE, commit=COMMIT)
+    assert str(pq.read_schema(path).field("sector").type) == "string"
+    validate_table(pd.read_parquet(path), "macro_fr")

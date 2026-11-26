@@ -11,6 +11,7 @@ import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pandera.errors
@@ -22,6 +23,17 @@ from core.tables.schemas import KEYS, SCHEMAS
 logger = logging.getLogger(__name__)
 
 METADATA_KEY = b"public_money_fr"
+
+_COLUMN_PRESENCE_CHECKS = ("column_in_schema", "column_in_dataframe")
+
+_ARROW_TYPES: dict[str, pa.DataType] = {
+    "int8": pa.int8(),
+    "Int8": pa.int8(),
+    "int16": pa.int16(),
+    "float64": pa.float64(),
+    "bool": pa.bool_(),
+    "date": pa.date32(),
+}
 
 
 class TableError(ValueError):
@@ -60,6 +72,16 @@ def current_commit() -> str:
     return result.stdout.strip()
 
 
+def _describe_failure(row: Any) -> str:
+    """Describe one failure case, naming the column that breaks the schema."""
+    if row.check in _COLUMN_PRESENCE_CHECKS:
+        kind = "missing" if row.check == "column_in_dataframe" else "unexpected"
+        return f"column {row.failure_case!r}: {kind} column ({row.check})"
+    if row.schema_context == "DataFrameSchema":
+        return f"rule {row.check}: {row.failure_case!r}"
+    return f"column {row.column!r}: {row.check} (failure case: {row.failure_case!r})"
+
+
 def validate_table(frame: pd.DataFrame, table: str) -> pd.DataFrame:
     """Check a frame against the schema and the key of its table.
 
@@ -79,10 +101,7 @@ def validate_table(frame: pd.DataFrame, table: str) -> pd.DataFrame:
     try:
         SCHEMAS[table].validate(frame, lazy=True)
     except pandera.errors.SchemaErrors as error:
-        lines = [
-            f"column {row.column!r}: {row.check} (failure case: {row.failure_case!r})"
-            for row in error.failure_cases.itertuples()
-        ]
+        lines = [_describe_failure(row) for row in error.failure_cases.itertuples()]
         raise TableError(f"table {table!r} breaks its schema:\n" + "\n".join(lines)) from error
     key = KEYS.get(table)
     if key is not None:
@@ -93,6 +112,28 @@ def validate_table(frame: pd.DataFrame, table: str) -> pd.DataFrame:
                 f"({', '.join(key)}); a null counts as one value"
             )
     return frame
+
+
+def _arrow_type(dtype: object) -> pa.DataType:
+    name = str(dtype)
+    return pa.string() if name.startswith("string") else _ARROW_TYPES[name]
+
+
+def _to_arrow(frame: pd.DataFrame, table: str) -> pa.Table:
+    """Convert a valid frame to Arrow with the types of the schema.
+
+    An all-null nullable string column has no type of its own in pandas; the schema gives
+    it, so the file reads back with the same types that the schema checks.
+    """
+    arrow = pa.Table.from_pandas(frame, preserve_index=False)
+    for name, column in SCHEMAS[table].columns.items():
+        index = arrow.schema.get_field_index(name)
+        wanted = _arrow_type(column.dtype)
+        if arrow.schema.field(index).type != wanted:
+            arrow = arrow.set_column(
+                index, pa.field(name, wanted), arrow.column(index).cast(wanted)
+            )
+    return arrow
 
 
 def write_table(
@@ -130,7 +171,7 @@ def write_table(
         build_date=(build_date or datetime.date.today()).isoformat(),
         commit=commit or current_commit(),
     )
-    arrow = pa.Table.from_pandas(frame, preserve_index=False)
+    arrow = _to_arrow(frame, table)
     stored = {
         METADATA_KEY: json.dumps(
             {

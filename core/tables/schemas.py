@@ -12,9 +12,19 @@ BUDGET_PARTS = ("BG", "BA", "CAS", "CCF", "unsplit")
 UNITS = ("eur", "pct_gdp", "pct")
 
 
-def _text(description: str, *, nullable: bool = False, allowed: tuple[str, ...] = ()) -> pa.Column:
-    checks = pa.Check.isin(list(allowed)) if allowed else None
-    return pa.Column("string", checks, nullable=nullable, description=description)
+def _text(
+    description: str,
+    *,
+    nullable: bool = False,
+    allowed: tuple[str, ...] = (),
+    pattern: str | None = None,
+) -> pa.Column:
+    checks = []
+    if allowed:
+        checks.append(pa.Check.isin(list(allowed)))
+    if pattern is not None:
+        checks.append(pa.Check.str_matches(rf"^{pattern}\Z"))
+    return pa.Column("string", checks or None, nullable=nullable, description=description)
 
 
 def _year(description: str = "Year.") -> pa.Column:
@@ -39,12 +49,21 @@ def _source_id() -> pa.Column:
     return _text("Manifest id of the source file of the row.")
 
 
-def _schema(name: str, columns: dict[str, pa.Column], *, strict: bool = True) -> pa.DataFrameSchema:
-    return pa.DataFrameSchema(columns, strict=strict, name=name)
+def _schema(
+    name: str,
+    columns: dict[str, pa.Column],
+    *,
+    strict: bool = True,
+    checks: list[pa.Check] | None = None,
+) -> pa.DataFrameSchema:
+    return pa.DataFrameSchema(columns, checks=checks, strict=strict, name=name)
 
 
 _BUDGET_PART = "Budget part: BG, BA, CAS, CCF, or unsplit where the source gives no part."
 _PROGRAMME = "Programme code, three digits, kept as published."
+PROGRAMME_CODE_PATTERN = r"[0-9]{3}"
+MISSION_CODE_PATTERN = r"[A-Z]{2}"
+LINE_CODE_PATTERN = r"[0-9]+"
 _EUROS = "Amount in euros (not thousands or billions); may be negative."
 
 STATE_BUDGET_LINES = _schema(
@@ -52,7 +71,7 @@ STATE_BUDGET_LINES = _schema(
     {
         "year": _year(),
         "budget_part": _text(_BUDGET_PART, allowed=BUDGET_PARTS),
-        "programme_code": _text(_PROGRAMME),
+        "programme_code": _text(_PROGRAMME, pattern=PROGRAMME_CODE_PATTERN),
         "title_group": _text(
             "Title group: T2 (title 2, staff), other (titles 1 and 3 to 7), or unsplit.",
             allowed=("T2", "other", "unsplit"),
@@ -83,18 +102,25 @@ STATE_BUDGET_LINES = _schema(
         "amount_eur": _amount(_EUROS),
         "source_id": _source_id(),
     },
+    checks=[
+        pa.Check(
+            lambda frame: frame.groupby(["year", "stage"])["basis"].nunique().le(1).all(),
+            name="one_basis_for_each_year_and_stage",
+        )
+    ],
 )
 
 NOMENCLATURE = _schema(
     "nomenclature",
     {
         "year": _year(),
-        "programme_code": _text(_PROGRAMME),
+        "programme_code": _text(_PROGRAMME, pattern=PROGRAMME_CODE_PATTERN),
         "budget_part": _text(_BUDGET_PART, allowed=BUDGET_PARTS),
         "programme_label": _text("Programme label as published that year."),
         "mission_code": _text(
             "Mission code, two letters as published; null where the file gives a label only.",
             nullable=True,
+            pattern=MISSION_CODE_PATTERN,
         ),
         "mission_label": _text(
             "Mission label as published that year; null where the source gives no mission.",
@@ -119,6 +145,7 @@ STATE_REVENUE_LINES = _schema(
         "line_code": _text(
             "Digits before the first ' - ' of the label; null when the label has none.",
             nullable=True,
+            pattern=LINE_CODE_PATTERN,
         ),
         "category": _text("Category as published."),
         "stage": _text(
@@ -135,7 +162,7 @@ STATE_EMPLOYMENT = _schema(
     {
         "year": _year(),
         "budget_part": _text(_BUDGET_PART, allowed=BUDGET_PARTS),
-        "programme_code": _text(_PROGRAMME),
+        "programme_code": _text(_PROGRAMME, pattern=PROGRAMME_CODE_PATTERN),
         "stage": _text("Stage of the figure.", allowed=("bill", "amendments", "voted", "executed")),
         "fte": _amount("ETPT, full-time equivalent worked over the year."),
         "source_id": _source_id(),
@@ -192,6 +219,7 @@ PERFORMANCE_INDICATORS = _schema(
         "programme_code": _text(
             "Programme code, three digits; null for indicators with no programme code.",
             nullable=True,
+            pattern=PROGRAMME_CODE_PATTERN,
         ),
         "indicator_code": _text("Indicator code as published."),
         "indicator_label": _text("Indicator label as published."),
@@ -218,6 +246,20 @@ PERFORMANCE_INDICATORS = _schema(
         ),
         "source_id": _source_id(),
     },
+    checks=[
+        pa.Check(
+            lambda frame: (frame["target_kind"] != "numeric") | frame["target_value"].notna(),
+            name="target_value_filled_when_target_kind_is_numeric",
+        ),
+        pa.Check(
+            lambda frame: (frame["target_kind"] != "none") | frame["target_value"].isna(),
+            name="target_value_null_when_target_kind_is_none",
+        ),
+        pa.Check(
+            lambda frame: (frame["target_kind"] != "qualitative") | frame["target_text"].notna(),
+            name="target_text_filled_when_target_kind_is_qualitative",
+        ),
+    ],
 )
 
 MACRO_FR = _schema(
@@ -269,6 +311,16 @@ FISCAL_COMMITMENTS = _schema(
         "unit": _text("Unit of value: eur, pct_gdp or pct.", allowed=UNITS),
         "source_id": _source_id(),
     },
+    checks=[
+        pa.Check(
+            lambda frame: (frame["entry_method"] != "hand") | frame["reference"].notna(),
+            name="reference_filled_when_entry_method_is_hand",
+        ),
+        pa.Check(
+            lambda frame: (frame["entry_method"] != "file") | frame["reference"].isna(),
+            name="reference_null_when_entry_method_is_file",
+        ),
+    ],
 )
 
 #: For each table, the columns of its key. A null counts as one key value.
