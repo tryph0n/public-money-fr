@@ -32,6 +32,32 @@ Check: `uv run ruff check .` and `uv run mypy core`
 Run the application locally: `uv run streamlit run app/Home.py`, then open
 <http://localhost:8501>.
 
+### Docstring style
+
+Docstrings in `core` use the [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).
+Sphinx renders the `Args`, `Returns` and `Raises` sections as a parameter list on the API
+reference page (`sphinx.ext.napoleon`). Ruff checks the style (`D` rules, Google convention);
+it does not require a docstring on every object.
+
+```python
+def share(part: float, total: float) -> float:
+    """Return a part as a share of a total.
+
+    Args:
+        part: Amount of the part, in euros.
+        total: Amount of the total, in euros.
+
+    Returns:
+        The share, between 0 and 1.
+
+    Raises:
+        ValueError: If `total` is zero.
+    """
+```
+
+Build the docs as CI does:
+`uv run --locked --group docs sphinx-build -W --keep-going -b html docs docs/_build/html`.
+
 ## Licence
 
 Apache-2.0. See `LICENSE`.

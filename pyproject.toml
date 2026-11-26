@@ -36,7 +36,17 @@ line-length = 100
 extend-exclude = [".doc", "data"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+select = ["E", "F", "I", "B", "UP", "D"]
+# D1xx rules demand a docstring on every public object; this project checks the style of the
+# docstrings that exist, not their presence.
+ignore = ["D1"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"app/**" = ["D"]
+"tests/**" = ["D"]
 
 [tool.mypy]
 python_version = "3.12"
