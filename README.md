@@ -24,6 +24,9 @@ redeploys it on each push to `main`.
 
 Documentation: <https://public-money-fr.readthedocs.io/en/latest/>. Read the Docs builds it
 from `main`. The section pages are empty for now; the API reference lists the `core` package.
+The data catalogue is generated from the source manifest at each build (`core/publish/catalogue.py`,
+called from `docs/conf.py`): one page per `core/sources/*.yaml` file, in `docs/_generated/`
+(git-ignored). An entry that breaks a manifest rule, such as a missing licence, fails the build.
 
 Continuous integration (`.github/workflows/ci.yml`) runs ruff (lint and format check), mypy,
 pytest and the docs build on each pull request and on each push to `main`.
