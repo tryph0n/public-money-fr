@@ -4,6 +4,9 @@ Each table is uploaded as Parquet with a dataset card generated from the manifes
 hash of the data and the card, stored in the dataset, lets a second publish of the same
 content do nothing, so it creates no commit.
 
+The commit is made against the revision whose files were listed, so a publish that raced with
+another one fails instead of deleting the files that the other one added.
+
 The commit also deletes every file of the dataset that the publish does not hold (except
 `.gitattributes`), so each data file in the dataset is named on the card with its inputs and
 their notices. A publish must therefore give every table of the dataset.
@@ -23,10 +26,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urlparse
 
+import httpx2
 import pyarrow as pa
 import pyarrow.parquet as pq
-from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
+from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi, constants
+from huggingface_hub.errors import RepositoryNotFoundError
 
 from core.publish.card import build_card
 from core.publish.hf_check import CARD_PATH, DATASET_NAMES, NAMESPACE
@@ -48,11 +54,13 @@ class HubApi(Protocol):
 
     def create_repo(self, repo_id: str, *, repo_type: str, exist_ok: bool) -> object: ...
 
-    def repo_exists(self, repo_id: str, *, repo_type: str) -> bool: ...
+    def repo_info(self, repo_id: str, *, repo_type: str) -> "RepoHead": ...
 
-    def list_repo_files(self, repo_id: str, *, repo_type: str) -> list[str]: ...
+    def list_repo_files(self, repo_id: str, *, repo_type: str, revision: str) -> list[str]: ...
 
-    def hf_hub_download(self, repo_id: str, filename: str, *, repo_type: str) -> str: ...
+    def hf_hub_download(
+        self, repo_id: str, filename: str, *, repo_type: str, revision: str
+    ) -> str: ...
 
     def create_commit(
         self,
@@ -61,7 +69,15 @@ class HubApi(Protocol):
         *,
         commit_message: str,
         repo_type: str,
+        parent_commit: str,
     ) -> object: ...
+
+
+class RepoHead(Protocol):
+    """The part of the repository information that the publisher uses."""
+
+    @property
+    def sha(self) -> str | None: ...
 
 
 @dataclass(frozen=True)
@@ -193,12 +209,18 @@ def publish(api: HubApi, upload: Upload) -> bool:
     Returns:
         True if a commit was created, False if the content hash had not changed and the
         dataset held no stale file.
+
+    Raises:
+        PublishError: If the Hub gives no revision for the dataset.
     """
     api.create_repo(upload.repo_id, repo_type="dataset", exist_ok=True)
-    present = api.list_repo_files(upload.repo_id, repo_type="dataset")
+    head = api.repo_info(upload.repo_id, repo_type="dataset").sha
+    if head is None:
+        raise PublishError(f"{upload.repo_id}: the Hub gave no revision for the dataset")
+    present = api.list_repo_files(upload.repo_id, repo_type="dataset", revision=head)
     stale = stale_files(present, upload)
     if not stale and HASH_PATH in present:
-        stored = api.hf_hub_download(upload.repo_id, HASH_PATH, repo_type="dataset")
+        stored = api.hf_hub_download(upload.repo_id, HASH_PATH, repo_type="dataset", revision=head)
         if Path(stored).read_text(encoding="utf-8").strip() == upload.content_hash:
             logger.info("%s: content unchanged, nothing to commit", upload.repo_id)
             return False
@@ -210,7 +232,13 @@ def publish(api: HubApi, upload: Upload) -> bool:
     message = f"data: publish {_count(upload.tables, 'table')}"
     if stale:
         message += f", delete {_count(len(stale), 'stale file')}"
-    api.create_commit(upload.repo_id, operations, commit_message=message, repo_type="dataset")
+    api.create_commit(
+        upload.repo_id,
+        operations,
+        commit_message=message,
+        repo_type="dataset",
+        parent_commit=head,
+    )
     logger.info("%s: committed %d files, deleted %d", upload.repo_id, len(upload.files), len(stale))
     return True
 
@@ -236,23 +264,30 @@ def run(
         0 on success, 1 if the token is missing for a real run.
 
     Raises:
-        PublishError: If the dataset is unknown, a file is missing, or two files hold the
-            same table.
+        PublishError: If the dataset is unknown, a file is missing, two files hold the
+            same table, or the Hub cannot be reached or refuses a request (including a
+            commit that another publish overtook).
         TableError: If a file has no table metadata.
         CardError: If the card cannot state what the licences of the inputs ask for.
     """
     upload = prepare(dataset, paths, manifest)
-    if dry_run:
-        reader = HfApi(token=False)
-        present = (
-            reader.list_repo_files(upload.repo_id, repo_type="dataset")
-            if reader.repo_exists(upload.repo_id, repo_type="dataset")
-            else []
-        )
-        print(describe(upload, stale_files(present, upload)))
-        return 0
-    if not os.environ.get("HF_TOKEN"):
-        logger.error("HF_TOKEN is not set")
-        return 1
-    publish(HfApi(), upload)
+    try:
+        if dry_run:
+            print(describe(upload, stale_files(_present_files(upload.repo_id), upload)))
+            return 0
+        if not os.environ.get("HF_TOKEN"):
+            logger.error("HF_TOKEN is not set")
+            return 1
+        publish(HfApi(), upload)
+    except httpx2.HTTPError as error:
+        host = urlparse(constants.ENDPOINT).hostname
+        raise PublishError(f"the request to {host} failed: {error}") from error
     return 0
+
+
+def _present_files(repo_id: str) -> list[str]:
+    """List the files of a public dataset without a token; none if it does not exist."""
+    try:
+        return HfApi(token=False).list_repo_files(repo_id, repo_type="dataset")
+    except RepositoryNotFoundError:
+        return []

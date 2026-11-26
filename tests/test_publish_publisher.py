@@ -1,13 +1,15 @@
 import dataclasses
 import datetime
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
+import httpx2
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 import yaml
 from huggingface_hub import CommitOperationAdd, CommitOperationDelete
+from huggingface_hub.errors import HfHubHTTPError, RepositoryNotFoundError
 
 from core.cli import main
 from core.publish import publisher
@@ -26,24 +28,49 @@ NOTE = "Kept the series FRA.1.0.99.0.UBLGE and wrote one row per year."
 DAY = datetime.date(2026, 11, 1)
 
 
+def hub_error(status: int, error: type[HfHubHTTPError] = HfHubHTTPError) -> HfHubHTTPError:
+    request = httpx2.Request("GET", "https://huggingface.co/api/datasets/sam-bot/x")
+    return error(f"status {status}", response=httpx2.Response(status, request=request))
+
+
+class FakeHead:
+    def __init__(self, sha: str | None) -> None:
+        self.sha = sha
+
+
 class FakeApi:
-    def __init__(self, directory: Path, files: dict[str, bytes] | None = None) -> None:
+    def __init__(
+        self, directory: Path, files: dict[str, bytes] | None = None, *, exists: bool = True
+    ) -> None:
         self.directory = directory
         self.files: dict[str, bytes] = dict(files or {})
+        self.exists = exists
         self.commits: list[str] = []
+        self.parents: list[str] = []
+        self.revision = 0
+        self.after_listing: Callable[[], None] | None = None
+        self.sha_given: str | None = None
 
     def create_repo(self, repo_id: str, *, repo_type: str, exist_ok: bool) -> object:
         assert repo_type == "dataset"
         assert exist_ok is True
+        self.exists = True
         return None
 
-    def repo_exists(self, repo_id: str, *, repo_type: str) -> bool:
-        return bool(self.files)
+    def repo_info(self, repo_id: str, *, repo_type: str) -> FakeHead:
+        return FakeHead(self.sha_given or f"rev{self.revision}")
 
-    def list_repo_files(self, repo_id: str, *, repo_type: str) -> list[str]:
-        return sorted(self.files)
+    def list_repo_files(
+        self, repo_id: str, *, repo_type: str, revision: str | None = None
+    ) -> list[str]:
+        if not self.exists:
+            raise hub_error(404, RepositoryNotFoundError)
+        listed = sorted(self.files)
+        if self.after_listing is not None:
+            self.after_listing()
+        return listed
 
-    def hf_hub_download(self, repo_id: str, filename: str, *, repo_type: str) -> str:
+    def hf_hub_download(self, repo_id: str, filename: str, *, repo_type: str, revision: str) -> str:
         path = self.directory / filename.replace("/", "_")
         path.write_bytes(self.files[filename])
         return str(path)
@@ -55,7 +82,12 @@ class FakeApi:
         *,
         commit_message: str,
         repo_type: str,
+        parent_commit: str,
     ) -> object:
+        if parent_commit != f"rev{self.revision}":
+            raise hub_error(412)
+        self.parents.append(parent_commit)
+        self.revision += 1
         self.commits.append(commit_message)
         for operation in operations:
             if isinstance(operation, CommitOperationDelete):
@@ -395,3 +427,135 @@ def test_unknown_dataset_and_duplicate_tables_are_refused(
         publisher.prepare("other", [path], manifest)
     with pytest.raises(publisher.PublishError, match="same table"):
         publisher.prepare("core", [path, path], manifest)
+
+
+PLR2015 = "plr-2015-execution"
+
+
+@pytest.mark.parametrize(
+    ("source_id", "page"),
+    [
+        (AMECO, "https://ec.europa.eu/economy_finance/db_indicators/ameco/documents/ameco16.zip"),
+        (
+            CRPA,
+            "https://commission.europa.eu/publications/2016-european-semester-national-plans-france_en",
+        ),
+        (
+            LFI,
+            "https://data.economie.gouv.fr/explore/dataset/loi-de-finances-initiale-pour-2019-lfi-2019-1/",
+        ),
+        (PLR2015, "https://www.data.gouv.fr/datasets/57559e6c88ee382aa2640390/"),
+    ],
+)
+def test_input_row_links_the_page_of_the_source_and_the_licence(
+    manifest: dict[str, Source], source_id: str, page: str
+) -> None:
+    source = manifest[source_id]
+    card = build_card("public-money-core", metadata((source_id,)), manifest)
+    row = next(
+        line for line in card.splitlines() if line.startswith("| [") and f"({source_id}) |" in line
+    )
+    assert row.startswith(f"| [{source.title}]({page}) ({source_id}) | ")
+    assert f"]({source.licence.url}) | [" in row
+
+
+def test_dry_run_of_a_missing_dataset_lists_no_deletion(
+    tmp_path: Path,
+    manifest: dict[str, Source],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api = FakeApi(tmp_path, exists=False)
+    monkeypatch.setattr(publisher, "HfApi", lambda **kwargs: api)
+    path = write_macro(tmp_path / "a.parquet")
+    assert publisher.run("core", [path], manifest, dry_run=True) == 0
+    assert "would delete 0 files" in capsys.readouterr().out
+
+
+def test_dry_run_network_error_names_the_host_and_exits_2(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unreachable(**kwargs: object) -> FakeApi:
+        api = FakeApi(tmp_path)
+
+        def refuse(*args: object, **kw: object) -> list[str]:
+            raise httpx2.ConnectError("[Errno -2] Name or service not known")
+
+        api.list_repo_files = refuse  # type: ignore[method-assign]
+        return api
+
+    monkeypatch.setattr(publisher, "HfApi", unreachable)
+    path = write_macro(tmp_path / "a.parquet")
+    assert main(["publish", "core", str(path), "--dry-run"]) == 2
+    assert "the request to huggingface.co failed" in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+def test_real_run_network_error_names_the_host_and_exits_2(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    api = FakeApi(tmp_path)
+
+    def refuse(*args: object, **kwargs: object) -> object:
+        raise httpx2.ConnectError("[Errno -2] Name or service not known")
+
+    api.create_repo = refuse  # type: ignore[method-assign]
+    monkeypatch.setenv("HF_TOKEN", "test-value")
+    monkeypatch.setattr(publisher, "HfApi", lambda **kwargs: api)
+    path = write_macro(tmp_path / "a.parquet")
+    assert main(["publish", "core", str(path)]) == 2
+    assert "the request to huggingface.co failed" in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+def test_publish_commits_on_the_revision_it_listed(
+    tmp_path: Path, manifest: dict[str, Source]
+) -> None:
+    api = FakeApi(tmp_path)
+    api.sha_given = "rev0"
+    upload = publisher.prepare("core", [write_macro(tmp_path / "a.parquet")], manifest)
+    publisher.publish(api, upload)
+    assert api.parents == ["rev0"]
+
+
+def test_a_publish_that_raced_with_another_fails_and_keeps_the_other_files(
+    tmp_path: Path, manifest: dict[str, Source], caplog: pytest.LogCaptureFixture
+) -> None:
+    api = FakeApi(tmp_path)
+
+    def other_publish() -> None:
+        api.files["data/added_by_other.parquet"] = b"x"
+        api.revision += 1
+
+    api.after_listing = other_publish
+    upload = publisher.prepare("core", [write_macro(tmp_path / "a.parquet")], manifest)
+    with pytest.raises(HfHubHTTPError):
+        publisher.publish(api, upload)
+    assert api.files == {"data/added_by_other.parquet": b"x"}
+    assert api.commits == []
+
+
+def test_a_raced_publish_through_the_command_line_exits_2(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    api = FakeApi(tmp_path)
+
+    def other_publish() -> None:
+        api.revision += 1
+
+    api.after_listing = other_publish
+    monkeypatch.setenv("HF_TOKEN", "test-value")
+    monkeypatch.setattr(publisher, "HfApi", lambda **kwargs: api)
+    path = write_macro(tmp_path / "a.parquet")
+    assert main(["publish", "core", str(path)]) == 2
+    assert "the request to huggingface.co failed" in caplog.text
+
+
+def test_a_dataset_without_a_revision_is_refused(
+    tmp_path: Path, manifest: dict[str, Source]
+) -> None:
+    api = FakeApi(tmp_path)
+    api.repo_info = lambda repo_id, *, repo_type: FakeHead(None)  # type: ignore[method-assign]
+    upload = publisher.prepare("core", [write_macro(tmp_path / "a.parquet")], manifest)
+    with pytest.raises(publisher.PublishError, match="no revision"):
+        publisher.publish(api, upload)
