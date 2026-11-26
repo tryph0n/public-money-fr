@@ -4,12 +4,14 @@ A project imports `core` and never another project; `core` imports no project. T
 check is a static scan: it reads every `.py` and `.pyi` file under `core/` and under each
 folder of `projects/` (only `__pycache__` is skipped, so a folder such as `projects/_shared`
 counts as a project). It flags import statements, a bare `import projects` (the module
-could then reach any project by attribute), and calls to `importlib.import_module` or
-`__import__` whose first argument is a string literal.
+could then reach any project by attribute), `from projects import *` (the package has no
+`__all__`, so a star import binds every project module already loaded), an attribute on
+the name `projects` that names another project (`projects.beta.x`), and calls to
+`importlib.import_module` or `__import__` whose first argument is a string literal.
 
 Limit: an import built from a string computed at run time (a variable, a concatenation,
-an f-string) is out of reach of a static scan, and so is any access through attributes
-once a project module is imported.
+an f-string) is out of reach of a static scan, and so is an access to a project through
+another name (`p = projects`, then `p.beta`) or through `getattr`.
 """
 
 import ast
@@ -32,7 +34,8 @@ def imported_modules(path: Path, root: Path) -> list[tuple[int, str]]:
     """Return (line, absolute dotted name) for each name a file imports.
 
     Besides import statements, a call to `importlib.import_module` or `__import__` with
-    a string literal as first argument counts as an import of that name.
+    a string literal as first argument counts as an import of that name, and so does an
+    attribute on the name `projects` (`projects.beta` counts as `projects.beta`).
     """
     package = list(path.relative_to(root).parts[:-1])
     found: list[tuple[int, str]] = []
@@ -52,6 +55,12 @@ def imported_modules(path: Path, root: Path) -> list[tuple[int, str]]:
             literal = dynamic_import_literal(node)
             if literal is not None:
                 found.append((node.lineno, literal))
+        elif (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "projects"
+        ):
+            found.append((node.lineno, f"projects.{node.attr}"))
     return found
 
 
@@ -73,7 +82,7 @@ def dynamic_import_literal(call: ast.Call) -> str | None:
 
 def referenced_project(dotted: str, projects: set[str]) -> str | None:
     parts = dotted.split(".")
-    if parts == ["projects"]:
+    if parts in (["projects"], ["projects", "*"]):
         return ""
     if len(parts) >= 2 and parts[0] == "projects" and parts[1] in projects:
         return parts[1]
@@ -156,6 +165,26 @@ def test_bare_projects_import_is_detected(tmp_path: Path, target: str, statement
     assert len(find_violations(tmp_path)) == 1
 
 
+@pytest.mark.parametrize(
+    ("target", "statement"),
+    [
+        ("core/mod.py", "from projects import *"),
+        ("projects/alpha/mod.py", "from projects import *"),
+        ("projects/alpha/mod.py", "from .. import *"),
+    ],
+)
+def test_star_import_of_projects_is_detected(tmp_path: Path, target: str, statement: str) -> None:
+    make_tree(tmp_path, {target: statement + "\n"})
+    assert len(find_violations(tmp_path)) == 1
+
+
+def test_star_import_from_own_project_is_not_flagged(tmp_path: Path) -> None:
+    make_tree(
+        tmp_path, {"projects/alpha/mod.py": "from projects.alpha import *\nfrom . import *\n"}
+    )
+    assert find_violations(tmp_path) == []
+
+
 def test_from_projects_import_of_own_project_is_not_flagged(tmp_path: Path) -> None:
     make_tree(tmp_path, {"projects/alpha/mod.py": "from projects import alpha\n"})
     assert find_violations(tmp_path) == []
@@ -218,3 +247,30 @@ def test_pycache_folder_is_not_a_project(tmp_path: Path) -> None:
     make_tree(tmp_path, {})
     (tmp_path / "projects/__pycache__").mkdir()
     assert project_names(tmp_path) == {"alpha", "beta"}
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["projects.beta.x", "projects.beta", "projects.beta.sub.y()", "print(projects.beta)"],
+)
+def test_attribute_naming_another_project_is_detected(tmp_path: Path, expression: str) -> None:
+    source = "import projects.alpha\n" + expression + "\n"
+    make_tree(tmp_path, {"projects/alpha/mod.py": source})
+    assert len(find_violations(tmp_path)) == 1
+
+
+def test_attribute_naming_any_project_in_core_is_detected(tmp_path: Path) -> None:
+    make_tree(tmp_path, {"core/mod.py": "from projects import x\nprojects.alpha.x\n"})
+    assert len(find_violations(tmp_path)) == 1
+
+
+def test_attribute_naming_own_project_is_not_flagged(tmp_path: Path) -> None:
+    source = "import projects.alpha\nprojects.alpha.x\nprojects.alpha.sub.y()\n"
+    make_tree(tmp_path, {"projects/alpha/mod.py": source})
+    assert find_violations(tmp_path) == []
+
+
+def test_attribute_that_names_no_project_is_not_flagged(tmp_path: Path) -> None:
+    source = "import projects.alpha\nprojects.unknown.x\nother.beta.x\n"
+    make_tree(tmp_path, {"projects/alpha/mod.py": source})
+    assert find_violations(tmp_path) == []
