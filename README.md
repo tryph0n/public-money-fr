@@ -52,6 +52,17 @@ Check: `uv run ruff check .` and `uv run mypy core`
 Run the application locally: `uv run streamlit run app/Home.py`, then open
 <http://localhost:8501>.
 
+### Fetch the sources
+
+`uv run python -m core.cli fetch [source id ...]` fetches the sources of the manifest
+(`core/sources/`) into `data/raw/<source id>/` (git-ignored) and pins each file in
+`sources.lock.json` (size and SHA-256), which is committed. A file that the lockfile lists and
+whose bytes still match is not fetched again. `--offline` uses the cache only; `--force` fetches
+again. Resets and server errors are retried with backoff. A refusal (HTTP 401, 403 or 429, or a
+web page where data was asked for) stops the run with an error that names the host, with no
+retry. A source of kind `manual` is never downloaded: put the file in `data/manual/` (or in
+`data/raw/<source id>/`); it is copied and checked against the SHA-256 of the manifest.
+
 ### Docstring style
 
 Docstrings in `core` use the [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).

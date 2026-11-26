@@ -1,0 +1,285 @@
+{
+  "sources": {
+    "ameco-net-lending": {
+      "AMECO16.TXT": {
+        "path": "AMECO16.TXT",
+        "retrieved_on": "2026-11-26",
+        "sha256": "e24acd0ef2b9773817c51ae29ea3d3a6562c751f1bb395e96bdb1a5f8c102380",
+        "size": 7356605
+      }
+    },
+    "lfi-2019-voted": {
+      "records": {
+        "path": "records.json",
+        "retrieved_on": "2026-11-26",
+        "sha256": "767eefcd5013e15d6c8cb96a0ba17bf3049f97fe2be0daffd793c954ba1497fa",
+        "size": 1506198
+      }
+    },
+    "plr-2015-execution": {
+      "PLR 2015 - Exécution par Ministère en AE pour le BG": {
+        "path": "PLR2015-Exec-Min_AE-BG.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "56727220a9c7beda8d827e863ff659a0576bd402423d504286dc89d3d2f73729",
+        "size": 114167
+      },
+      "PLR 2015 - Exécution par Ministère en AE pour les CAS": {
+        "path": "PLR2015-Exec-Min_AE-CAS.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "0892d73a8604fd024cbe1a7b6963f775271bd2da3a7d5299f58cb9c8adce01fb",
+        "size": 14606
+      },
+      "PLR 2015 - Exécution par Ministère en AE pour les CCF": {
+        "path": "PLR2015-Exec-Min_AE-CCF.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "0ffae6de3b536e5bc569a51b380a459ac99bde3f8dee9c9caa962bd63318df7d",
+        "size": 8208
+      },
+      "PLR 2015 - Exécution par Ministère en CP pour le BG": {
+        "path": "PLR2015-Exec-Min_CP-BG.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "b9dab1b49181495f7a206c7155da159bc28af8fe3bde736f894ad7e59a750f5d",
+        "size": 114140
+      },
+      "PLR 2015 - Exécution par Ministère en CP pour les CAS": {
+        "path": "PLR2015-Exec-Min_CP-CAS.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "308f910646a6611288c23560f48885005c2193173c15ce769b8b8be083ebd9ec",
+        "size": 14606
+      },
+      "PLR 2015 - Exécution par Ministère en CP pour les CCF": {
+        "path": "PLR2015-Exec-Min_CP-CCF.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "b41143beadd8a13c45a19e4d58d52b00fa77a06606dc6890381804f7db4a49fd",
+        "size": 8208
+      },
+      "PLR 2015 - Exécution par Mission en AE pour le BG": {
+        "path": "PLR2015-Exec-Msn_AE-BG.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "cd074488a706b7b6d9c5070ce76fc48197914709c1ebd2182424c0782c10808d",
+        "size": 101895
+      },
+      "PLR 2015 - Exécution par Mission en AE pour les CAS": {
+        "path": "PLR2015-Exec-Msn_AE-CAS.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "6528f4dd3e66fdd98c0c8d8c76b74ecdc3fa5cad055d04ffc965865c507593bc",
+        "size": 14670
+      },
+      "PLR 2015 - Exécution par Mission en AE pour les CCF": {
+        "path": "PLR2015-Exec-Msn_AE-CCF.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "96aa04a7a198815a7d956641b1f4b6d684e7c9a5bc09bbde8335450fe42a0e90",
+        "size": 6751
+      },
+      "PLR 2015 - Exécution par Mission en CP pour le BG": {
+        "path": "PLR2015-Exec-Msn_CP-BG.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "152f923583380d31de2830397a1ccdcfdd811f5de05b00af2419ae2da42e39e9",
+        "size": 101868
+      },
+      "PLR 2015 - Exécution par Mission en CP pour les CAS": {
+        "path": "PLR2015-Exec-Msn_CP-CAS.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "dd58df22595e6b6107fb911516de7818824521e406464f2e5030039ad3e80122",
+        "size": 14670
+      },
+      "PLR 2015 - Exécution par Mission en CP pour les CCF": {
+        "path": "PLR2015-Exec-Msn_CP-CCF.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "8288b3376b79df556914ac8ecf85d368e66a7440fccdabf21bb89fb4a0640615",
+        "size": 6751
+      },
+      "PLR 2015 - Exécution par Mission et catégorie pour le BG": {
+        "path": "PLR2015-Exec-Msn_Cat-BG.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "8fea72437cf3cd5e5e6880a638305ea3db6ccf7bce1cf5725a8a5e454106a652",
+        "size": 303348
+      },
+      "PLR 2015 - Exécution par Mission et catégorie pour les CAS": {
+        "path": "PLR2015-Exec-Msn_Cat-CAS.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "dd598483c0e7df81cda146652de1b3bb2ac07b4f9af740a6addd4a750fbdf4f4",
+        "size": 17621
+      },
+      "PLR 2015 - Exécution par Mission et catégorie pour les CCF": {
+        "path": "PLR2015-Exec-Msn_Cat-CCF.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "56807fab2abd890395fc47d69acff3c5746e857eb64c12a8183c892e341e5b0f",
+        "size": 4833
+      }
+    },
+    "plrg-2024-execution": {
+      "Annexe1-Etat_AE-2024.csv": {
+        "path": "Annexe1-Etat_AE-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "1c6611456b2f8ba0e9162f31a6532f91efd50da2ce1fa4b525b3dd9bfbb06420",
+        "size": 35919
+      },
+      "Annexe1-Etat_AE_CP-2024.csv": {
+        "path": "Annexe1-Etat_AE_CP-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "5c374be4eb01bf71d007a1c25855d9c81116a09232e3cf653dd166536b8585fa",
+        "size": 2865
+      },
+      "Annexe1-Etat_CP-2024.csv": {
+        "path": "Annexe1-Etat_CP-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "2ec0b30f934104ea11c863fc044932c5e260930d0c06e8e05aa0977aa315e90b",
+        "size": 36318
+      },
+      "Annexe1-Etat_FDC_ADP-2024.csv": {
+        "path": "Annexe1-Etat_FDC_ADP-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "d025c1ca1318027a93e50f838c04c9463a355cf2b132e8a564e913e44b2e13c1",
+        "size": 12016
+      },
+      "Annexe1-Etat_Recettes.csv": {
+        "path": "Annexe1-Etat_Recettes.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "79812995f0429e31f1d60bdf749290ef9d6f003d9c14d018f267cd171d5eb35a",
+        "size": 199845
+      },
+      "Annexe1-Etat_Titre_Cat-2024.csv": {
+        "path": "Annexe1-Etat_Titre_Cat-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "1308a9e8574866d4402b42c9b413c7b6eb6cab451e19836c142b488fe2aabc68",
+        "size": 88267
+      },
+      "Annexe2-Dec_Auto-2024.csv": {
+        "path": "Annexe2-Dec_Auto-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "dded98d482c0bdadc79b5d9c36be8f497214637adb6a35149a2e22b286a697b2",
+        "size": 1492
+      },
+      "Annexe2-Etat_AE-2024.csv": {
+        "path": "Annexe2-Etat_AE-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "42d52e3e51336002b6c16d670a249ba5e07826e55f89f76a131f4b88379688a8",
+        "size": 9815
+      },
+      "Annexe2-Etat_CP-2024.csv": {
+        "path": "Annexe2-Etat_CP-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "5acf533d6fe5c7be08f7671556f611b94e8fd8304abdef671579b1e3c6fd13d0",
+        "size": 10431
+      },
+      "Annexe2-Etat_Comptable-2024.csv": {
+        "path": "Annexe2-Etat_Comptable-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "1f298641d8994a824f820c6ad618067669558f01c08f13965c7475d28e9f1da9",
+        "size": 3514
+      },
+      "Annexe2-Etat_Recouvt-2024.csv": {
+        "path": "Annexe2-Etat_Recouvt-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "9c7bcf1e556ef7081a8c0f79b63298a8e8d2a5fe59db5cbc677e410c53158741",
+        "size": 141004
+      },
+      "AnnexeSec-Fonc-2024.csv": {
+        "path": "AnnexeSec-Fonc-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "f214710646791d8443c106bbb6e639baf9a469fc9b7576b46da54bc591c65907",
+        "size": 1944
+      },
+      "AnnexeSec-Invest-2024.csv": {
+        "path": "AnnexeSec-Invest-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "3d10e60844511e1439c1c065b3feb83860b0c4c75f9a1f12e8acdf3afbbb4a04",
+        "size": 1066
+      },
+      "BACEA-Bilan-2024.csv": {
+        "path": "BACEA-Bilan-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "a05663af17129e93422f95df2d884697dc2005e793a994dd258383e2bfa9d346",
+        "size": 5054
+      },
+      "BACEA-Dev_AEN-2024.csv": {
+        "path": "BACEA-Dev_AEN-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "f228d76635d2ac85c05731d2e08bb05351082b21b2a2111bdfaced9c3513856a",
+        "size": 2558
+      },
+      "BACEA-Dev_CPN-2024.csv": {
+        "path": "BACEA-Dev_CPN-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "ae3010cb114d9f5c3dc71f0642232ef4a4e90e323a019f8f9a8b38061f723c95",
+        "size": 2713
+      },
+      "BACEA-Pres_Bud-2024.csv": {
+        "path": "BACEA-Pres_Bud-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "e99487cc14384de04e75d1926330909ce95918c6b64dfb3ad2249bd20991314f",
+        "size": 1936
+      },
+      "BACEA-Recettes-2024.csv": {
+        "path": "BACEA-Recettes-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "def3f82dfed99ef762a68f527c86829a6971455cdb8898d5de4b59d5773627aa",
+        "size": 1890
+      },
+      "BACEA-Resultat-2024.csv": {
+        "path": "BACEA-Resultat-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "c9451c2d54ce393e8fbe16af5631dca71622d9e2825ca0e6b5d5d302a8f138dc",
+        "size": 6943
+      },
+      "BAPOIA-Bilan-2024.csv": {
+        "path": "BAPOIA-Bilan-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "ac11dc0017f22be65550b97d549af021737dc6945319e63f12e0f1b5ad815e34",
+        "size": 2765
+      },
+      "BAPOIA-CDR-2024.csv": {
+        "path": "BAPOIA-CDR-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "b4a9f42c3ae949708bd2795fbe76892e866b6190169cbafeeb0b087cef14353f",
+        "size": 3120
+      },
+      "BAPOIA-Pres_Bud-2024.csv": {
+        "path": "BAPOIA-Pres_Bud-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "b45d558f09cfa39f6a87122d2d48fabbd2d2549f7467b16c5aa4806786c5f9e5",
+        "size": 1561
+      },
+      "BAPOIA-Recettes-2024.csv": {
+        "path": "BAPOIA-Recettes-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "a5893031b7e21d9cf45f08c739312f8e24c62c7801921fe0e18628788c877342",
+        "size": 1268
+      },
+      "BAPOIA-Synt_AE-2024.csv": {
+        "path": "BAPOIA-Synt_AE-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "eaad858196b75b3846581bb7fe2a466d2107d88761886d6ae158538c435a0c1f",
+        "size": 1660
+      },
+      "BAPOIA-Synt_CP-2024.csv": {
+        "path": "BAPOIA-Synt_CP-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "8c1c82297527c283c085671a87592f72ab60cb888e50e27011834120668a158c",
+        "size": 1934
+      },
+      "ListDepFisc-PLRN-2024.csv": {
+        "path": "ListDepFisc-PLRN-2024.csv",
+        "retrieved_on": "2026-11-26",
+        "sha256": "78bce09c297c0b06025ba0ab622c7a8403305788d405d48ff316100e8565e64c",
+        "size": 173228
+      },
+      "notices_par_fichiers_csv_plrg_2024.zip": {
+        "path": "notices_par_fichiers_csv_plrg_2024.zip",
+        "retrieved_on": "2026-11-26",
+        "sha256": "3b7faaad363affbdd1eeceb23e42fddb273488627a1f1c3f40f72c72eccad924",
+        "size": 4203630
+      }
+    },
+    "stability-programme-france-2016": {
+      "european-semester-stability-programme_france_2016_fr.pdf": {
+        "path": "european-semester-stability-programme_france_2016_fr.pdf",
+        "retrieved_on": "2026-11-26",
+        "sha256": "c5a23fc60f3fe1ce433ff6cd50811b2306e868dedfb109e2b3865273148f245e",
+        "size": 791973
+      }
+    }
+  },
+  "version": 1
+}
