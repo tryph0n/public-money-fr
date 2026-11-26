@@ -18,7 +18,7 @@ import pandera.errors
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from core.tables.schemas import KEYS, SCHEMAS
+from core.tables.schemas import FRAME_CHECK_COLUMNS, KEYS, SCHEMAS
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +77,26 @@ def _describe_failure(row: Any) -> str:
     if row.check in _COLUMN_PRESENCE_CHECKS:
         kind = "missing" if row.check == "column_in_dataframe" else "unexpected"
         return f"column {row.failure_case!r}: {kind} column ({row.check})"
-    if row.schema_context == "DataFrameSchema":
-        return f"rule {row.check}: {row.failure_case!r}"
     return f"column {row.column!r}: {row.check} (failure case: {row.failure_case!r})"
+
+
+def _describe_frame_rule(check: str, cases: pd.DataFrame) -> str:
+    """Describe a failed rule of the whole frame: its columns and each bad row once."""
+    columns = ", ".join(FRAME_CHECK_COLUMNS.get(check, ()))
+    rows = sorted(set(cases["index"].dropna()))
+    where = f"rows {', '.join(str(row) for row in rows)}" if rows else "the frame as a whole"
+    return f"rule {check} on columns ({columns}) fails for {where}"
+
+
+def _describe_failures(failure_cases: pd.DataFrame) -> list[str]:
+    """Describe all failure cases: a line for each cell, a line for each frame-level rule."""
+    is_frame_rule = (failure_cases["schema_context"] == "DataFrameSchema") & ~failure_cases[
+        "check"
+    ].isin(_COLUMN_PRESENCE_CHECKS)
+    lines = [_describe_failure(row) for row in failure_cases[~is_frame_rule].itertuples()]
+    for check, cases in failure_cases[is_frame_rule].groupby("check", sort=False):
+        lines.append(_describe_frame_rule(str(check), cases))
+    return lines
 
 
 def validate_table(frame: pd.DataFrame, table: str) -> pd.DataFrame:
@@ -101,7 +118,7 @@ def validate_table(frame: pd.DataFrame, table: str) -> pd.DataFrame:
     try:
         SCHEMAS[table].validate(frame, lazy=True)
     except pandera.errors.SchemaErrors as error:
-        lines = [_describe_failure(row) for row in error.failure_cases.itertuples()]
+        lines = _describe_failures(error.failure_cases)
         raise TableError(f"table {table!r} breaks its schema:\n" + "\n".join(lines)) from error
     key = KEYS.get(table)
     if key is not None:
