@@ -18,8 +18,9 @@ Each project answers one question.
 This repository is a skeleton. It has no data yet. The application is a walking skeleton:
 its pages are in French and are empty.
 
-Public URL: <https://public-money-fr.onrender.com> (expected address of the free Render
-instance; it sleeps after 15 minutes without a visit and takes about a minute to wake).
+Public URL: <https://public-money-fr.onrender.com>. It is a free Render instance: it
+sleeps after 15 minutes without a visit and takes about a minute to wake. Render
+redeploys it on each push to `main`.
 
 ## Develop
 
