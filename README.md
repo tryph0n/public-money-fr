@@ -85,8 +85,8 @@ Each pull request answers the side-effects checklist of `.github/pull_request_te
 for the README, the docs, the CI, the data pipeline and the other shared files, it updates each
 one that the change affects in the same pull request, or says why no update is needed.
 
-GitHub puts the template in the body only in the web form. A body given on the command line or
-to the REST API replaces it. So a pull request created from a terminal or with the REST API
+The web form and an interactive `gh pr create` offer the template. A body given with `--body`,
+`--body-file` or to the REST API does not get it. So a pull request created from a terminal or with the REST API
 takes a copy of the template as its body and answers each line: copy the file, answer each
 line, then run `gh pr create --title "..." --body-file <file>`.
 

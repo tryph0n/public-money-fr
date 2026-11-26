@@ -1,6 +1,6 @@
 <!--
-GitHub fills in this template only in the web form. A body given on the command line or to
-the REST API replaces it. From a terminal or the REST API, copy this file to a body file,
+The web form and an interactive `gh pr create` offer this template. A body given with --body,
+--body-file or to the REST API does not get it. From a terminal or the REST API, copy this file to a body file,
 answer each line, then run: gh pr create --title "..." --body-file <file>
 -->
 
