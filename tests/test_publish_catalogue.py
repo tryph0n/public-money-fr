@@ -71,9 +71,9 @@ def test_entry_without_licence_fails_and_writes_nothing(manifest_dir: Path, tmp_
 def test_each_trap_is_a_warning_block() -> None:
     for source in load_manifest().values():
         page = render_page(source)
-        assert page.count(":::{warning}") == len(source.traps)
+        assert page.count("```{warning}") == len(source.traps)
         for trap in source.traps:
-            assert f":::{{warning}}\n{trap}\n:::" in page.replace("\\", "")
+            assert f"```{{warning}}\n{trap}\n```" in page.replace("\\", "")
 
 
 def test_markup_in_a_value_is_escaped() -> None:

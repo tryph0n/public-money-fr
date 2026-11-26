@@ -62,7 +62,7 @@ def render_page(source: Source) -> str:
         "",
     ]
     for trap in source.traps:
-        lines.extend([":::{warning}", _escape(trap), ":::", ""])
+        lines.extend(["```{warning}", _escape(trap), "```", ""])
     lines.extend(
         [
             "## Description",
