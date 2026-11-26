@@ -15,7 +15,11 @@ Each project answers one question.
 
 ## Status
 
-This repository is a skeleton. It has no data and no application yet.
+This repository is a skeleton. It has no data yet. The application is a walking skeleton:
+its pages are in French and are empty.
+
+Public URL: <https://public-money-fr.onrender.com> (expected address of the free Render
+instance; it sleeps after 15 minutes without a visit and takes about a minute to wake).
 
 ## Develop
 
@@ -24,6 +28,9 @@ Install: `uv sync`
 Test: `uv run pytest`
 
 Check: `uv run ruff check .` and `uv run mypy core`
+
+Run the application locally: `uv run streamlit run app/Home.py`, then open
+<http://localhost:8501>.
 
 ## Licence
 
