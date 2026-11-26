@@ -13,6 +13,11 @@ licence:
   name: Creative Commons Attribution 4.0 International (CC BY 4.0)
   url: https://commission.europa.eu/legal-notice_en
   read_on: 2026-11-26
+last_update:
+  date: 2026-11-24
+  url: https://economy-finance.ec.europa.eu/economic-research-and-databases/economic-databases/ameco-database/download-annual-data-set-macro-economic-database-ameco_en
+  where: 'Date of the download page and of its item "AMECO - All zipped TXT files", 24 November 2026; the AMECO database page gives the "Ameco Online release note 24/11/2026"'
+  read_on: 2026-11-26
 grain: One annual series per unit for France (national currency, Mrd EUR, percentage of GDP at current prices), one row per series
 years:
   first: 1960
@@ -27,5 +32,6 @@ traps:
   - AMECO is read from the Commission, not through DBnomics, because DBnomics distributes its aggregated datasets under the ODbL (share-alike) and the project publishes under Licence Ouverte 2.0 (decision of the owner, 26 November 2026).
   - In the Redisstat SDMX API (agency ECFIN) the AMECO series are in the dataflows AMECO_CHAPTERxx-yy; this one is in AMECO_CHAPTER16-04 (columns REF_AREA, ITEM, UNIT), which serves France UBLGE in the three units 0, 99 and 319, from 1960 to 2028. The dataflows FDMS_* (for example FDMS_UBLGE, columns INDICATOR, GEO, UNIT, unit 319 only) are a different dataset, not AMECO.
   - The chapter zip is replaced at each AMECO update (the file on 26 November 2026 was last modified on 24 November 2026); store the retrieval date with the data.
+  - At each AMECO update the chapter zip changes, so its pin changes; read last_update again on the download page then.
 status: verified
 verified_on: 2026-11-26

@@ -1,7 +1,9 @@
 # Data catalogue
 
 The catalogue lists the sources of the datasets that the projects publish: producer, years, grain,
-licence, status and traps. The Sphinx build writes it from the source manifest
+licence, date of last update, status and traps. The date of last update is the one that the
+producer states, with the page where it was read; it must be read again when the pinned files of
+a source change. The Sphinx build writes it from the source manifest
 (`core/sources/*.yaml`): one page per source and the table below. A new manifest file adds a page.
 
 The data is also available as Hugging Face datasets and through the application:

@@ -17,6 +17,7 @@ from core.sources.manifest import MANIFEST_DIR, Source, load_manifest
 logger = logging.getLogger(__name__)
 
 TABLE_FILE = "table.md"
+NO_DATE = "none stated"
 
 _SPECIAL = re.compile(r"([\\`*_{}\[\]<>|#])")
 
@@ -30,6 +31,21 @@ def _years(source: Source) -> str:
     if source.first_year == source.last_year:
         return str(source.first_year)
     return f"{source.first_year} to {source.last_year}"
+
+
+def _last_update_lines(source: Source) -> list[str]:
+    last_update = source.last_update
+    if last_update is None:
+        return [
+            "The producer states no usable date of last update, so a dataset card refuses this "
+            "source. The traps say why.",
+        ]
+    return [
+        f"- Date stated by the producer: {last_update.date.isoformat()}",
+        f"- Stated at: <{last_update.url}>",
+        f"- Where: {_escape(last_update.where)}",
+        f"- Read on: {last_update.read_on.isoformat()}",
+    ]
 
 
 def _access_lines(access: dict[str, object]) -> list[str]:
@@ -50,7 +66,8 @@ def render_page(source: Source) -> str:
         source: The manifest entry.
 
     Returns:
-        The Markdown text of the page. Each trap is a warning block.
+        The Markdown text of the page. Each trap is a warning block. The section on the last
+        update gives the date that the producer states and where it was read.
     """
     licence = source.licence
     lines = [
@@ -87,6 +104,8 @@ def render_page(source: Source) -> str:
         lines.append(f"- Basis of reuse: {_escape(licence.basis)}")
     if licence.decision is not None:
         lines.append(f"- Decision: {_escape(licence.decision)}")
+    lines.extend(["", "## Last update", ""])
+    lines.extend(_last_update_lines(source))
     lines.extend(["", "## Access", ""])
     lines.extend(_access_lines(source.access))
     lines.append("")
@@ -104,8 +123,8 @@ def render_table(sources: Iterable[Source], link_prefix: str = "") -> str:
         The Markdown table, one row per source, each id linking to its page.
     """
     lines = [
-        "| Source | Producer | Years | Grain | Licence | Status | Traps |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| Source | Producer | Years | Grain | Licence | Last update | Status | Traps |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for source in sources:
         cells = [
@@ -114,6 +133,7 @@ def render_table(sources: Iterable[Source], link_prefix: str = "") -> str:
             _years(source),
             _escape(source.grain),
             _escape(source.licence.name),
+            source.last_update.date.isoformat() if source.last_update else NO_DATE,
             source.status,
             str(len(source.traps)),
         ]

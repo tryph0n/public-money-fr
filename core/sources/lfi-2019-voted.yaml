@@ -9,6 +9,11 @@ licence:
   name: Licence Ouverte (Etalab)
   url: https://data.economie.gouv.fr/explore/dataset/loi-de-finances-initiale-pour-2019-lfi-2019-1/information/
   read_on: 2026-11-26
+last_update:
+  date: 2019-03-21
+  url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/loi-de-finances-initiale-pour-2019-lfi-2019-1
+  where: Field metas.default.modified of the dataset, 2019-03-21T14:46:59+00:00
+  read_on: 2026-11-26
 grain: One record per mission, programme, action, sub-action, category and title, with the voted amounts AE and CP of 2019
 years:
   first: 2019
@@ -18,5 +23,6 @@ encoding: UTF-8
 generation: G3
 traps:
   - The portal declares the first Licence Ouverte (the licence file is dated 2014), not version 2.0.
+  - The portal also gives metas.default.data_processed, 2019-06-07; it is the day the portal last processed the records, not a date that the producer states, so last_update uses metas.default.modified.
 status: verified
 verified_on: 2026-11-26

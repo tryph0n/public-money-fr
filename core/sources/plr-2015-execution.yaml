@@ -32,6 +32,11 @@ licence:
     update are named. So the source and the date of the last update are named, and the
     meaning is not distorted.
   decision: D24 (plan section 10), 26 November 2026
+last_update:
+  date: 2016-06-06
+  url: https://www.data.gouv.fr/api/1/datasets/57559e6c88ee382aa2640390/
+  where: Field last_update of the dataset, 2016-06-06T18:22:03+00:00
+  read_on: 2026-11-26
 grain: One file per budget part (BG, CAS, CCF), per credit type (AE, CP) and per view (mission, ministry, mission and category)
 years:
   first: 2015

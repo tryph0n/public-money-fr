@@ -3,6 +3,11 @@
 The manifest is one YAML file per source in this folder. It is the only place where a
 dataset id, a URL and a licence are written: code and tickets refer to a manifest id. A
 file that breaks a rule stops the load with an error that names the file and the field.
+
+The field `last_update` holds the date of the last update that the producer states, and where
+it was read; the dataset card prints it. It is empty (null) when the producer states no usable
+date, and a card then refuses the source. The files are pinned by checksum, so the date must be
+read again each time a pin changes: a new SHA-256 in `sources.lock.json` or in the manifest.
 """
 
 import datetime
@@ -35,6 +40,7 @@ _FIELDS = (
     "producer",
     "access",
     "licence",
+    "last_update",
     "grain",
     "years",
     "format",
@@ -46,6 +52,7 @@ _FIELDS = (
 )
 _LICENCE_REQUIRED = ("name", "url", "read_on")
 _LICENCE_BASIS = ("basis", "decision")
+_LAST_UPDATE = ("date", "url", "where", "read_on")
 
 
 class ManifestError(ValueError):
@@ -65,6 +72,18 @@ class _UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep)
 
 
+def is_not_declared(name: str) -> bool:
+    """Tell whether a licence name is the one a portal reports for no declared licence.
+
+    Args:
+        name: The licence name of a manifest entry.
+
+    Returns:
+        True if the name is `notspecified`, ignoring the case and the extra spaces.
+    """
+    return " ".join(name.split()).casefold() == NOT_DECLARED
+
+
 @dataclass(frozen=True)
 class Licence:
     """The licence of a source and where and when it was read."""
@@ -80,6 +99,18 @@ class Licence:
 
 
 @dataclass(frozen=True)
+class LastUpdate:
+    """The date of the last update that the producer states, and where it was read."""
+
+    date: datetime.date
+    #: The page, API answer or document that states the date.
+    url: str
+    #: Where the date is on that page or in that document, for example the field name.
+    where: str
+    read_on: datetime.date
+
+
+@dataclass(frozen=True)
 class Source:
     """One entry of the manifest."""
 
@@ -88,6 +119,8 @@ class Source:
     producer: str
     access: dict[str, Any]
     licence: Licence
+    #: None when the producer states no usable date; a dataset card then refuses the source.
+    last_update: LastUpdate | None
     grain: str
     first_year: int
     last_year: int
@@ -170,7 +203,7 @@ def _licence(value: Any, path: Path) -> Licence:
     name = _text(data["name"], "licence.name", path)
     basis = data.get("basis")
     decision = data.get("decision")
-    if " ".join(name.split()).casefold() == NOT_DECLARED:
+    if is_not_declared(name):
         for key in _LICENCE_BASIS:
             if key not in data:
                 raise ManifestError(
@@ -183,6 +216,23 @@ def _licence(value: Any, path: Path) -> Licence:
         read_on=_date(data["read_on"], "licence.read_on", path),
         basis=None if basis is None else _text(basis, "licence.basis", path),
         decision=None if decision is None else _text(decision, "licence.decision", path),
+    )
+
+
+def _last_update(value: Any, path: Path) -> LastUpdate | None:
+    if value is None:
+        return None
+    data = _mapping(value, "last_update", path)
+    _check_keys(data, _LAST_UPDATE, (), "last_update", path)
+    date = _date(data["date"], "last_update.date", path)
+    read_on = _date(data["read_on"], "last_update.read_on", path)
+    if date > read_on:
+        raise ManifestError(f"{path.name}: last_update.date: must not be after its read_on date")
+    return LastUpdate(
+        date=date,
+        url=_text(data["url"], "last_update.url", path),
+        where=_text(data["where"], "last_update.where", path),
+        read_on=read_on,
     )
 
 
@@ -229,6 +279,7 @@ def load_source(path: Path) -> Source:
         producer=_text(data["producer"], "producer", path),
         access=_access(data["access"], path),
         licence=_licence(data["licence"], path),
+        last_update=_last_update(data["last_update"], path),
         grain=_text(data["grain"], "grain", path),
         first_year=first_year,
         last_year=last_year,
