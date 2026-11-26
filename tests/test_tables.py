@@ -5,7 +5,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from core.tables.schemas import KEYS, SCHEMAS
+from core.tables.schemas import FRAME_CHECK_COLUMNS, KEYS, SCHEMAS
 from core.tables.writer import TableError, read_metadata, validate_table, write_table
 
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
@@ -487,3 +487,89 @@ def test_all_null_object_column_is_written_as_string(tmp_path: Path) -> None:
     write_table(frame, "macro_fr", path, ["a"], build_date=BUILD_DATE, commit=COMMIT)
     assert str(pq.read_schema(path).field("sector").type) == "string"
     validate_table(pd.read_parquet(path), "macro_fr")
+
+
+CROSS_COLUMN_CASES = [
+    (
+        "state_budget_lines",
+        {"basis": ["budget", "pdf_extraction"], "stage": ["voted", "voted"]},
+        "one_basis_for_each_year_and_stage",
+        ("year", "stage", "basis"),
+    ),
+    (
+        "performance_indicators",
+        {"target_value": [None, None]},
+        "target_value_filled_when_target_kind_is_numeric",
+        ("target_kind", "target_value"),
+    ),
+    (
+        "performance_indicators",
+        {"target_kind": ["none", "qualitative"], "target_value": [90.0, None]},
+        "target_value_null_when_target_kind_is_none",
+        ("target_kind", "target_value"),
+    ),
+    (
+        "performance_indicators",
+        {"target_text": [None, None]},
+        "target_text_filled_when_target_kind_is_qualitative",
+        ("target_kind", "target_text"),
+    ),
+    (
+        "fiscal_commitments",
+        {"reference": [None, None]},
+        "reference_filled_when_entry_method_is_hand",
+        ("entry_method", "reference"),
+    ),
+    (
+        "fiscal_commitments",
+        {"reference": ["art. 2", "art. 1"]},
+        "reference_null_when_entry_method_is_file",
+        ("entry_method", "reference"),
+    ),
+]
+
+
+def _cross_column_error(table: str, changes: dict[str, list[object]]) -> str:
+    frame = good_frames()[table]
+    for column, values in changes.items():
+        frame[column] = values
+    if "target_value" in changes:
+        frame["target_value"] = frame["target_value"].astype("float64")
+    with pytest.raises(TableError) as error:
+        validate_table(frame, table)
+    return str(error.value)
+
+
+def test_every_frame_rule_declares_its_columns() -> None:
+    covered = {rule for _, _, rule, _ in CROSS_COLUMN_CASES}
+    declared = {check.name for schema in SCHEMAS.values() for check in schema.checks if check.name}
+    assert declared == covered == set(FRAME_CHECK_COLUMNS)
+    for rule, columns in FRAME_CHECK_COLUMNS.items():
+        assert len(columns) >= 2, rule
+
+
+@pytest.mark.parametrize(("table", "changes", "rule", "columns"), CROSS_COLUMN_CASES)
+def test_cross_column_error_names_the_rule_and_every_column_it_reads(
+    table: str, changes: dict[str, list[object]], rule: str, columns: tuple[str, ...]
+) -> None:
+    lines = [line for line in _cross_column_error(table, changes).splitlines() if rule in line]
+    assert len(lines) == 1
+    assert f"on columns ({', '.join(columns)})" in lines[0]
+
+
+def test_three_bad_rows_of_one_rule_are_each_named_once() -> None:
+    frame = good_frames()["performance_indicators"]
+    frame = pd.concat([frame.iloc[[0]]] * 3, ignore_index=True)
+    frame["target_value"] = pd.Series([None, None, None], dtype="float64")
+    frame.index = pd.Index([10, 11, 12])
+    with pytest.raises(TableError) as error:
+        validate_table(frame, "performance_indicators")
+    message = str(error.value)
+    assert message.count("target_value_filled_when_target_kind_is_numeric") == 1
+    assert message.splitlines()[-1].endswith("fails for rows 10, 11, 12")
+    assert len(message.splitlines()) == 2
+
+
+def test_a_rule_on_the_whole_frame_names_the_frame_when_no_row_is_bad() -> None:
+    message = _cross_column_error(*CROSS_COLUMN_CASES[0][:2])
+    assert "fails for the frame as a whole" in message
