@@ -6,6 +6,10 @@ there. A schema is strict: a column that the table does not define is an error. 
 strings kept as published, never numbers, and `year` is `int16`.
 """
 
+from collections.abc import Callable
+from typing import Any
+
+import pandas as pd
 import pandera.pandas as pa
 
 BUDGET_PARTS = ("BG", "BA", "CAS", "CCF", "unsplit")
@@ -47,6 +51,18 @@ def _amount(description: str, *, nullable: bool = False) -> pa.Column:
 
 def _source_id() -> pa.Column:
     return _text("Manifest id of the source file of the row.")
+
+
+#: For each rule of the whole frame, the columns that it reads. The writer names them in the error.
+FRAME_CHECK_COLUMNS: dict[str, tuple[str, ...]] = {}
+
+
+def _frame_check(
+    name: str, columns: tuple[str, ...], rule: Callable[[pd.DataFrame], Any]
+) -> pa.Check:
+    """Build a rule of the whole frame and record the columns that it reads."""
+    FRAME_CHECK_COLUMNS[name] = columns
+    return pa.Check(rule, name=name)
 
 
 def _schema(
@@ -103,9 +119,10 @@ STATE_BUDGET_LINES = _schema(
         "source_id": _source_id(),
     },
     checks=[
-        pa.Check(
+        _frame_check(
+            "one_basis_for_each_year_and_stage",
+            ("year", "stage", "basis"),
             lambda frame: frame.groupby(["year", "stage"])["basis"].nunique().le(1).all(),
-            name="one_basis_for_each_year_and_stage",
         )
     ],
 )
@@ -247,17 +264,20 @@ PERFORMANCE_INDICATORS = _schema(
         "source_id": _source_id(),
     },
     checks=[
-        pa.Check(
+        _frame_check(
+            "target_value_filled_when_target_kind_is_numeric",
+            ("target_kind", "target_value"),
             lambda frame: (frame["target_kind"] != "numeric") | frame["target_value"].notna(),
-            name="target_value_filled_when_target_kind_is_numeric",
         ),
-        pa.Check(
+        _frame_check(
+            "target_value_null_when_target_kind_is_none",
+            ("target_kind", "target_value"),
             lambda frame: (frame["target_kind"] != "none") | frame["target_value"].isna(),
-            name="target_value_null_when_target_kind_is_none",
         ),
-        pa.Check(
+        _frame_check(
+            "target_text_filled_when_target_kind_is_qualitative",
+            ("target_kind", "target_text"),
             lambda frame: (frame["target_kind"] != "qualitative") | frame["target_text"].notna(),
-            name="target_text_filled_when_target_kind_is_qualitative",
         ),
     ],
 )
@@ -312,13 +332,15 @@ FISCAL_COMMITMENTS = _schema(
         "source_id": _source_id(),
     },
     checks=[
-        pa.Check(
+        _frame_check(
+            "reference_filled_when_entry_method_is_hand",
+            ("entry_method", "reference"),
             lambda frame: (frame["entry_method"] != "hand") | frame["reference"].notna(),
-            name="reference_filled_when_entry_method_is_hand",
         ),
-        pa.Check(
+        _frame_check(
+            "reference_null_when_entry_method_is_file",
+            ("entry_method", "reference"),
             lambda frame: (frame["entry_method"] != "file") | frame["reference"].isna(),
-            name="reference_null_when_entry_method_is_file",
         ),
     ],
 )
