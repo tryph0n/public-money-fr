@@ -749,6 +749,8 @@ name = "public-money-fr"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx2" },
+    { name = "huggingface-hub" },
     { name = "pandas" },
     { name = "pandera" },
     { name = "pyarrow" },
@@ -758,7 +760,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "huggingface-hub" },
     { name = "mypy" },
     { name = "pandas-stubs" },
     { name = "pre-commit" },
@@ -774,6 +775,8 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx2", specifier = ">=2.16.2" },
+    { name = "huggingface-hub", specifier = ">=2.4.0" },
     { name = "pandas", specifier = ">=3.1.1" },
     { name = "pandera", specifier = ">=0.36.0" },
     { name = "pyarrow", specifier = ">=26.0.1" },
@@ -783,7 +786,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "huggingface-hub", specifier = ">=2.4.0" },
     { name = "mypy" },
     { name = "pandas-stubs", specifier = ">=3.1.0.261029" },
     { name = "pre-commit" },
