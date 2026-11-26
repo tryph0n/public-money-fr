@@ -63,6 +63,15 @@ web page where data was asked for) stops the run with an error that names the ho
 retry. A source of kind `manual` is never downloaded: put the file in `data/manual/` (or in
 `data/raw/<source id>/`); it is copied and checked against the SHA-256 of the manifest.
 
+### Write a shared table
+
+`core.tables.schemas.SCHEMAS` holds one pandera schema for each shared table (column types,
+allowed values, and the unit of each amount column in its description). `core.tables.writer.write_table`
+checks a frame against the schema of its table and against the key of that table (a null counts as
+one key value), then writes Parquet with the source ids, the build date and the git commit in the
+file metadata. `read_metadata` reads them back. A frame that breaks a schema raises `TableError`,
+which names the column, and no file is written.
+
 ### Docstring style
 
 Docstrings in `core` use the [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).
