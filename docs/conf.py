@@ -18,6 +18,7 @@ nitpicky = True
 # signature, add one line for that library here (name: (docs URL, None)).
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
 }
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
