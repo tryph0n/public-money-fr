@@ -1,33 +1,56 @@
 """Generate the dataset card of a Hugging Face dataset from the source manifest.
 
-The card lists the tables, the inputs they come from with their producers and licences, and
-the build date. It also carries the notices that two kinds of licence ask for: for an input
-under CC BY 4.0, what the project changed in the data; for an input reused under articles
-L321-1 and L322-1 of the code des relations entre le public et l'administration, the source
-and the date of its last update.
+The card lists the tables, the inputs they come from with their producers, licences and the
+date of their last update that the producer states, and the build date. It also carries the
+notices that the licences ask for: for an input under CC BY 4.0, a link to the material and
+what the project changed in its data, from the change notes that the code that builds each
+table stores in the table; for an input with no declared licence, the basis of its reuse from
+the manifest, the source and the date of its last update.
 """
 
-import datetime
+import re
 from collections.abc import Mapping, Sequence
 
-from core.fetch.lockfile import Lockfile
-from core.sources.manifest import NOT_DECLARED, Source
+import yaml
+
+from core.fetch.adapters import DATA_GOUV, DEFAULT_BASE_URLS
+from core.sources.manifest import LastUpdate, Source, is_not_declared
 from core.tables.writer import TableMetadata
 
 REPOSITORY_URL = "https://github.com/tryph0n/public-money-fr"
+CARD_LICENCE = "etalab-2.0"
 CC_BY_4 = "CC BY 4.0"
 CC_BY_4_URL = "https://creativecommons.org/licenses/by/4.0/"
+NO_LICENCE = "No licence declared"
 
-CC_BY_CHANGES = (
-    "Changes made by this project: it kept only the series listed for this input, turned the "
-    "table with one column per year into one row per year, typed the columns, flagged the "
-    "years after the last closed year as forecasts, and converted amounts given in billions of "
-    "euros to euros. No other value was changed."
-)
+_MARKUP = re.compile(r"([\\|\[\]])")
 
 
 class CardError(ValueError):
-    """A table names a source that the manifest does not know."""
+    """The tables or the manifest lack what the card must state."""
+
+
+def card_header(pretty_name: str, tables: Sequence[str] = ()) -> str:
+    """Return the YAML metadata block of a dataset card.
+
+    Args:
+        pretty_name: Name of the dataset, for example `public-money-core`.
+        tables: Table names; each gets a viewer configuration that reads
+            `data/<table>.parquet`, so tables with different columns are shown apart.
+
+    Returns:
+        The YAML between two `---` lines, each line ending with a newline.
+    """
+    metadata: dict[str, object] = {
+        "license": CARD_LICENCE,
+        "language": ["fr"],
+        "pretty_name": pretty_name,
+    }
+    if tables:
+        metadata["configs"] = [
+            {"config_name": table, "data_files": f"data/{table}.parquet"} for table in tables
+        ]
+    return "---\n" + yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True) + "---\n"
 
 
 def is_cc_by(source: Source) -> bool:
@@ -42,34 +65,40 @@ def is_cc_by(source: Source) -> bool:
     return CC_BY_4 in source.licence.name
 
 
-def is_crpa(source: Source) -> bool:
-    """Tell whether an input is reused under articles L321-1 and L322-1 of the CRPA.
+def source_page(source: Source) -> str:
+    """Give the page that the files of an input come from.
 
     Args:
         source: The manifest entry.
 
     Returns:
-        True if the source declares no licence; the manifest loader then requires the basis.
+        The page of the dataset on its portal, the page of a manual file, or the download
+        URL of an archive.
     """
-    return " ".join(source.licence.name.split()).casefold() == NOT_DECLARED
+    access = source.access
+    if access["kind"] == "manual":
+        return str(access["page_url"])
+    if access["kind"] == "archive":
+        return str(access["download_url"])
+    if access["kind"] == "data_gouv":
+        return f"{DEFAULT_BASE_URLS[DATA_GOUV]}/datasets/{access['dataset_id']}/"
+    return f"https://{access['portal']}/explore/dataset/{access['dataset_id']}/"
 
 
-def last_update(source: Source, lockfile: Lockfile) -> datetime.date:
-    """Give the date of the last update of an input that the project knows.
+def licence_label(source: Source) -> str:
+    """Give the licence of an input as a reader would name it.
 
     Args:
         source: The manifest entry.
-        lockfile: The lockfile of the raw files.
 
     Returns:
-        The latest day on which the project stored a changed copy of one of the files of the
-        source; the day the manifest entry was verified if the lockfile has no file for it.
+        The licence name, or a plain statement when the producer declares none.
     """
-    days = [
-        datetime.date.fromisoformat(item.retrieved_on)
-        for item in lockfile.entries.get(source.id, {}).values()
-    ]
-    return max(days) if days else source.verified_on
+    return NO_LICENCE if is_not_declared(source.licence.name) else source.licence.name
+
+
+def _cell(text: str) -> str:
+    return _MARKUP.sub(r"\\\1", " ".join(text.split()))
 
 
 def _years(source: Source) -> str:
@@ -78,42 +107,42 @@ def _years(source: Source) -> str:
     return f"{source.first_year} to {source.last_year}"
 
 
-def _notice(source: Source, lockfile: Lockfile) -> list[str]:
-    lines = []
+def _notice(source: Source, last_update: LastUpdate, tables: Sequence[TableMetadata]) -> list[str]:
+    users = [item for item in tables if source.id in item.source_ids]
+    notes = [(item.table, item.changes[source.id]) for item in users if source.id in item.changes]
+    paragraphs = []
     if is_cc_by(source):
-        series = source.access.get("series")
-        lines.append(f"### {source.id}")
-        lines.append("")
-        lines.append(
-            f"Credit: {source.producer}. Licence: {source.licence.name}, {CC_BY_4_URL}; "
-            f"stated at {source.licence.url}."
+        missing = [item.table for item in users if source.id not in item.changes]
+        if missing:
+            raise CardError(
+                f"{source.id} is under {CC_BY_4}, which asks that changes be indicated, but "
+                f"these tables give no change note for it: {', '.join(missing)}"
+            )
+        paragraphs.append(
+            f"Credit: {source.producer}. Material: {source.title}, {source_page(source)}. "
+            f"Licence: {CC_BY_4}, {CC_BY_4_URL}; stated at {source.licence.url}."
         )
-        if series:
-            lines.append("")
-            lines.append(f"Series kept: {', '.join(series)}.")
-        lines.append("")
-        lines.append(CC_BY_CHANGES)
-        lines.append("")
-    if is_crpa(source):
-        lines.append(f"### {source.id}")
-        lines.append("")
-        lines.append(
-            "Reused under articles L321-1 and L322-1 of the code des relations entre le public "
-            "et l'administration. The meaning of the information is not distorted."
+    if is_not_declared(source.licence.name):
+        paragraphs.append(f"{NO_LICENCE} by the producer.")
+        if source.licence.basis:
+            paragraphs.append(f"Basis of the reuse: {' '.join(source.licence.basis.split())}")
+        paragraphs.append(f"Source: {source.title}, {source.producer}; {source_page(source)}")
+        paragraphs.append(
+            f"Date of its last update: {last_update.date.isoformat()}, as stated at "
+            f"{last_update.url} ({last_update.where})."
         )
-        lines.append("")
-        lines.append(f"Source: {source.title}, {source.producer}; {source.licence.url}.")
-        lines.append("")
-        lines.append(f"Date of its last update: {last_update(source, lockfile).isoformat()}.")
-        lines.append("")
-    return lines
+    if notes:
+        changes = "\n".join(f"- {table}: {' '.join(note.split())}" for table, note in notes)
+        paragraphs.append(f"Changes made by this project:\n\n{changes}")
+    if not paragraphs:
+        return []
+    return [f"### {source.id}", "", "\n\n".join(paragraphs), ""]
 
 
 def build_card(
     repo_name: str,
     tables: Sequence[TableMetadata],
     manifest: Mapping[str, Source],
-    lockfile: Lockfile,
 ) -> str:
     """Build the dataset card.
 
@@ -121,14 +150,15 @@ def build_card(
         repo_name: Name of the dataset, for example `public-money-core`.
         tables: What each published table says about itself.
         manifest: The sources by id.
-        lockfile: The lockfile of the raw files, for the date of the last update of an input.
 
     Returns:
-        The text of `README.md`: YAML metadata, the tables, the inputs with their licences,
-        and the notices that these licences ask for.
+        The text of `README.md`: YAML metadata, the tables, the inputs with their licences and
+        the date of their last update, and the notices that these licences ask for.
 
     Raises:
-        CardError: If a table names a source id that the manifest does not have.
+        CardError: If a table names a source id that the manifest does not have, an input has
+            no date of last update stated by its producer, or a table that uses an input under
+            CC BY 4.0 gives no change note for it.
     """
     ordered = sorted(tables, key=lambda item: item.table)
     ids = sorted({source_id for item in ordered for source_id in item.source_ids})
@@ -136,14 +166,15 @@ def build_card(
     if unknown:
         raise CardError(f"source ids not in the manifest: {', '.join(unknown)}")
     sources = [manifest[source_id] for source_id in ids]
+    dated = [(source, source.last_update) for source in sources if source.last_update]
+    undated = [source.id for source in sources if source.last_update is None]
+    if undated:
+        raise CardError(
+            "inputs with no date of last update stated by their producer (manifest field "
+            f"last_update): {', '.join(undated)}"
+        )
     lines = [
-        "---",
-        "license: etalab-2.0",
-        "language:",
-        "- fr",
-        f"pretty_name: {repo_name}",
-        "---",
-        "",
+        card_header(repo_name, [item.table for item in ordered]),
         f"# {repo_name}",
         "",
         "Open data on French public money, processed and published by the public-money-fr "
@@ -164,16 +195,21 @@ def build_card(
             "",
             "## Inputs",
             "",
-            "| Input | Producer | Years | Licence | Licence stated at |",
+            "The date of the last update is the one that the producer states, with a link to "
+            "where it is stated.",
+            "",
+            "| Input | Producer | Years | Licence | Last update |",
             "| --- | --- | --- | --- | --- |",
         ]
     )
-    for source in sources:
+    for source, last_update in dated:
         lines.append(
-            f"| {source.title} ({source.id}) | {source.producer} | {_years(source)} | "
-            f"{source.licence.name} | {source.licence.url} |"
+            f"| [{_cell(source.title)}]({source_page(source)}) ({source.id}) | "
+            f"{_cell(source.producer)} | {_years(source)} | "
+            f"[{_cell(licence_label(source))}]({source.licence.url}) | "
+            f"[{last_update.date.isoformat()}]({last_update.url}) |"
         )
-    notices = [line for source in sources for line in _notice(source, lockfile)]
+    notices = [line for source, last in dated for line in _notice(source, last, ordered)]
     if notices:
         lines.extend(["", "## Notices on the inputs", ""])
         lines.extend(notices)

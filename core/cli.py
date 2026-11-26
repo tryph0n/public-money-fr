@@ -13,7 +13,6 @@ from core.fetch.fetcher import (
     Fetcher,
 )
 from core.fetch.http import FetchError
-from core.fetch.lockfile import Lockfile
 from core.publish.card import CardError
 from core.publish.hf_check import DATASET_NAMES
 from core.publish.publisher import PublishError, run
@@ -40,8 +39,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     publish.add_argument("dataset", choices=DATASET_NAMES)
     publish.add_argument("tables", nargs="+", type=Path, help="Parquet files from write_table")
-    publish.add_argument("--dry-run", action="store_true", help="print what would be uploaded")
-    publish.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
+    publish.add_argument(
+        "--dry-run", action="store_true", help="print what would be uploaded and deleted"
+    )
     publish.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
     return parser
 
@@ -65,13 +65,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if args.command == "publish":
         try:
-            return run(
-                args.dataset,
-                args.tables,
-                manifest,
-                Lockfile.load(args.lock),
-                dry_run=args.dry_run,
-            )
+            return run(args.dataset, args.tables, manifest, dry_run=args.dry_run)
         except (PublishError, TableError, CardError) as error:
             logger.error("%s", error)
             return 2

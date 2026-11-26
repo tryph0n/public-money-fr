@@ -44,11 +44,17 @@ only its card (`README.md`) and `.gitattributes`.
 Publishing: `uv run python -m core.cli publish DATASET TABLE.parquet... [--dry-run]` uploads
 tables written by `write_table` to the dataset `DATASET` (core, finance, security or election)
 in one commit, with a card generated from the manifest (`core/publish/publisher.py`,
-`core/publish/card.py`). The card lists the inputs, producers, licences and build date; for a
-CC BY 4.0 input it says what the project changed, and for an input reused under articles L321-1
-and L322-1 of the CRPA it names the source and the date of its last update. A second publish of
-the same content creates no commit. `--dry-run` prints the files and needs no token. A real run
-reads the token from the `HF_TOKEN` environment variable only; it is a GitHub Actions secret.
+`core/publish/card.py`). The same commit deletes every file of the dataset that the publish does
+not hold (except `.gitattributes`), so a publish gives every table of the dataset. The card
+lists the tables, the inputs, producers, licences, build date, and for each input the date of
+its last update that the producer states (manifest field `last_update`); it refuses an input
+without that date. For a CC BY 4.0 input it links the material and prints the change notes that
+the table builder stores with `write_table(..., changes=...)`, and refuses the input without
+them. For an input with no declared licence it gives the basis of reuse from the manifest, the
+source page and the date of its last update. A second publish of the same content creates no
+commit. `--dry-run` prints the files, the files it would delete and the card; it reads the file
+list of the public dataset without a token and writes nothing. A real run reads the token from
+the `HF_TOKEN` environment variable only; it is a GitHub Actions secret.
 
 ## Develop
 

@@ -31,7 +31,10 @@ intersphinx_mapping = {
 
 # The publisher protocol names a huggingface_hub class under its private module path, which
 # the library's documentation inventory does not list.
-nitpick_ignore = [("py:class", "huggingface_hub._commit_api.CommitOperationAdd")]
+nitpick_ignore = [
+    ("py:class", "huggingface_hub._commit_api.CommitOperationAdd"),
+    ("py:class", "huggingface_hub._commit_api.CommitOperationDelete"),
+]
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
 templates_path = ["_templates"]
