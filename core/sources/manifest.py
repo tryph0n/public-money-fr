@@ -14,7 +14,8 @@ import yaml
 
 MANIFEST_DIR = Path(__file__).parent
 
-#: Licence name that a portal reports for a dataset with no declared licence.
+#: Licence name that a portal reports for a dataset with no declared licence. The loader
+#: compares it after it removes the case and the extra spaces.
 NOT_DECLARED = "notspecified"
 
 STATUSES = ("verified", "reported")
@@ -24,7 +25,7 @@ ACCESS_KINDS: dict[str, tuple[str, ...]] = {
     "records": ("portal", "dataset_id"),
     "attachments": ("portal", "dataset_id", "files"),
     "data_gouv": ("dataset_id", "files"),
-    "dbnomics": ("provider", "dataset", "dimensions"),
+    "archive": ("download_url", "member", "series"),
     "manual": ("page_url", "download_url", "sha256"),
 }
 
@@ -49,6 +50,19 @@ _LICENCE_BASIS = ("basis", "decision")
 
 class ManifestError(ValueError):
     """A manifest file breaks a rule; the message names the file and the field."""
+
+
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """YAML loader that refuses a key written twice in the same mapping."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        seen: set[Any] = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=True)
+            if key in seen:
+                raise yaml.YAMLError(f"line {key_node.start_mark.line + 1}: duplicate key {key!r}")
+            seen.add(key)
+        return super().construct_mapping(node, deep)
 
 
 @dataclass(frozen=True)
@@ -94,6 +108,8 @@ def _text(value: Any, where: str, path: Path) -> str:
 def _date(value: Any, where: str, path: Path) -> datetime.date:
     if not isinstance(value, datetime.date) or isinstance(value, datetime.datetime):
         raise ManifestError(f"{path.name}: {where}: must be a date written YYYY-MM-DD")
+    if value > datetime.date.today():
+        raise ManifestError(f"{path.name}: {where}: must not be in the future")
     return value
 
 
@@ -141,10 +157,8 @@ def _access(value: Any, path: Path) -> dict[str, Any]:
         path,
     )
     for key in required:
-        if key == "files":
+        if key in ("files", "series"):
             _text_list(access[key], f"access.{key}", path)
-        elif key == "dimensions":
-            _mapping(access[key], f"access.{key}", path)
         else:
             _text(access[key], f"access.{key}", path)
     return access
@@ -156,7 +170,7 @@ def _licence(value: Any, path: Path) -> Licence:
     name = _text(data["name"], "licence.name", path)
     basis = data.get("basis")
     decision = data.get("decision")
-    if name == NOT_DECLARED:
+    if " ".join(name.split()).casefold() == NOT_DECLARED:
         for key in _LICENCE_BASIS:
             if key not in data:
                 raise ManifestError(
@@ -197,7 +211,7 @@ def load_source(path: Path) -> Source:
             with the file name and names the field.
     """
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = yaml.load(path.read_text(encoding="utf-8"), Loader=_UniqueKeyLoader)
     except yaml.YAMLError as error:
         raise ManifestError(f"{path.name}: not valid YAML: {error}") from error
     data = _mapping(data, "file", path)

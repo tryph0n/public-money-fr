@@ -41,11 +41,11 @@ grain: Annex files of the execution law by programme and title group (voted, ame
 years:
   first: 2024
   last: 2024
-format: CSV attachments, each served gzip-compressed
+format: CSV attachments, served as plain text; the server compresses them with gzip only when the client sends Accept-Encoding gzip
 encoding: UTF-8
 generation: G5
 traps:
-  - The attachments are gzip-compressed; test the first two bytes (1f 8b) before reading.
+  - The attachments are plain CSV. When the request asks for gzip (Accept-Encoding), the server answers with Content-Encoding gzip; a client that does not decode it reads bytes that start with 1f 8b. Check the response header, not the file name.
   - The record of the dataset is not the data; the data is in the attachments.
   - The revenue file is named Annexe1-Etat_Recettes.csv, without the year; the 2023 and 2025 datasets name it differently.
 status: verified
