@@ -258,6 +258,7 @@ def test_shipped_last_update_dates_are_the_producer_dates() -> None:
     expected = {
         "ameco-net-lending": (datetime.date(2026, 11, 24), "economy-finance.ec.europa.eu"),
         "lfi-2019-voted": (datetime.date(2019, 3, 21), "data.economie.gouv.fr/api/"),
+        "plrg-2024-execution": (datetime.date(2025, 4, 29), "plrg-2024/attachments"),
         "plr-2015-execution": (datetime.date(2016, 6, 6), "www.data.gouv.fr/api/1/datasets/"),
         "stability-programme-france-2016": (datetime.date(2016, 4, 13), "commission.europa.eu"),
     }
@@ -267,7 +268,6 @@ def test_shipped_last_update_dates_are_the_producer_dates() -> None:
         assert last_update.date == date
         assert host in last_update.url
         assert last_update.read_on == datetime.date(2026, 11, 26)
-    assert sources["plrg-2024-execution"].last_update is None
 
 
 def test_shipped_2015_execution_uses_the_legal_basis() -> None:

@@ -23,7 +23,6 @@ OTHER_COMMIT = "fedcba9876543210fedcba9876543210fedcba98"
 AMECO = "ameco-net-lending"
 CRPA = "stability-programme-france-2016"
 LFI = "lfi-2019-voted"
-UNDATED = "plrg-2024-execution"
 NOTE = "Kept the series FRA.1.0.99.0.UBLGE and wrote one row per year."
 DAY = datetime.date(2026, 11, 1)
 
@@ -289,8 +288,15 @@ def test_card_gives_the_last_update_that_the_producer_states(
 
 
 def test_card_refuses_an_input_with_no_date_of_last_update(manifest: dict[str, Source]) -> None:
-    with pytest.raises(CardError, match=rf"no date of last update.*: {UNDATED}$"):
-        build_card("public-money-core", metadata((UNDATED,)), manifest)
+    undated = {**manifest, AMECO: dataclasses.replace(manifest[AMECO], last_update=None)}
+    with pytest.raises(CardError, match=rf"no date of last update.*: {AMECO}$"):
+        build_card("public-money-core", metadata((AMECO,)), undated)
+
+
+def test_card_gives_the_attachment_date_of_the_plrg_input(manifest: dict[str, Source]) -> None:
+    card = build_card("public-money-core", metadata(("plrg-2024-execution",)), manifest)
+    assert "[2025-04-29](https://data.economie.gouv.fr/api/explore/v2.1/" in card
+    assert "2024-04-17" not in card
 
 
 def test_card_for_a_cc_by_input_gives_the_material_and_the_builder_notes(

@@ -95,4 +95,11 @@ def test_page_and_table_give_the_last_update_stated_by_the_producer() -> None:
     table = render_table(sources.values())
     assert "| Last update |" in table
     assert "| 2016-06-06 |" in table
-    assert f"| {NO_DATE} |" in table
+    assert "| 2025-04-29 |" in table
+
+
+def test_a_source_without_a_date_says_so_on_its_page_and_in_the_table() -> None:
+    source = load_manifest()["ameco-net-lending"]
+    undated = type(source)(**{**source.__dict__, "last_update": None})
+    assert "states no usable date of last update" in render_page(undated)
+    assert f"| {NO_DATE} |" in render_table([undated])
