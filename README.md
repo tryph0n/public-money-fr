@@ -15,12 +15,28 @@ Each project answers one question.
 
 ## Status
 
-This repository is a skeleton. It has no data yet. The application is a walking skeleton:
+This repository is a skeleton. It builds no table yet. The application is a walking skeleton:
 its pages are in French and are empty.
 
 Public URL: <https://public-money-fr.onrender.com>. It is a free Render instance: it
 sleeps after 15 minutes without a visit and takes about a minute to wake. Render
 redeploys it on each push to `main`.
+
+Documentation: <https://public-money-fr.readthedocs.io/en/latest/>. Read the Docs builds it
+from `main`. The section pages are empty for now; the API reference lists the `core` package.
+
+Continuous integration (`.github/workflows/ci.yml`) runs ruff (lint and format check), mypy,
+pytest and the docs build on each pull request and on each push to `main`.
+
+Datasets: four public datasets on Hugging Face, in the `sam-bot` namespace. Each one holds
+only its card (`README.md`) and `.gitattributes`.
+
+| Dataset | Holds a table |
+| --- | --- |
+| [`sam-bot/public-money-core`](https://huggingface.co/datasets/sam-bot/public-money-core) | No |
+| [`sam-bot/public-money-finance`](https://huggingface.co/datasets/sam-bot/public-money-finance) | No |
+| [`sam-bot/public-money-security`](https://huggingface.co/datasets/sam-bot/public-money-security) | No |
+| [`sam-bot/public-money-election`](https://huggingface.co/datasets/sam-bot/public-money-election) | No |
 
 ## Develop
 
@@ -62,6 +78,17 @@ def share(part: float, total: float) -> float:
 
 Build the docs as CI does:
 `uv run --locked --group docs sphinx-build -W --keep-going -b html docs docs/_build/html`.
+
+### Pull requests
+
+Each pull request answers the side-effects checklist of `.github/pull_request_template.md`:
+for the README, the docs, the CI, the data pipeline and the other shared files, it updates each
+one that the change affects in the same pull request, or says why no update is needed.
+
+GitHub puts the template in the body only in the web form. A body given on the command line or
+to the REST API replaces it. So a pull request created from a terminal or with the REST API
+takes a copy of the template as its body and answers each line: copy the file, answer each
+line, then run `gh pr create --title "..." --body-file <file>`.
 
 ## Licence
 
