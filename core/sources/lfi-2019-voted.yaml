@@ -1,0 +1,22 @@
+id: lfi-2019-voted
+title: Loi de finances initiale pour 2019 (LFI 2019)
+producer: Direction du budget (Ministères économiques et financiers), through data.economie.gouv.fr
+access:
+  kind: records
+  portal: data.economie.gouv.fr
+  dataset_id: loi-de-finances-initiale-pour-2019-lfi-2019-1
+licence:
+  name: Licence Ouverte (Etalab)
+  url: https://data.economie.gouv.fr/explore/dataset/loi-de-finances-initiale-pour-2019-lfi-2019-1/information/
+  read_on: 2026-11-26
+grain: One record per mission, programme, action, sub-action, category and title, with the voted amounts AE and CP of 2019
+years:
+  first: 2019
+  last: 2019
+format: Records served by the portal API (JSON), 2,260 records
+encoding: UTF-8
+generation: G3
+traps:
+  - The portal declares the first Licence Ouverte (the licence file is dated 2014), not version 2.0.
+status: verified
+verified_on: 2026-11-26

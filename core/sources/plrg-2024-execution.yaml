@@ -1,0 +1,52 @@
+id: plrg-2024-execution
+title: Projet de loi relatif aux résultats de la gestion et portant approbation des comptes de l'année (PLRG) 2024
+producer: DGFiP, through data.economie.gouv.fr
+access:
+  kind: attachments
+  portal: data.economie.gouv.fr
+  dataset_id: plrg-2024
+  files:
+      - "BACEA-Pres_Bud-2024.csv"
+      - "BAPOIA-Recettes-2024.csv"
+      - "BAPOIA-Bilan-2024.csv"
+      - "BACEA-Dev_AEN-2024.csv"
+      - "AnnexeSec-Invest-2024.csv"
+      - "BAPOIA-Pres_Bud-2024.csv"
+      - "BAPOIA-Synt_CP-2024.csv"
+      - "AnnexeSec-Fonc-2024.csv"
+      - "BAPOIA-Synt_AE-2024.csv"
+      - "BAPOIA-CDR-2024.csv"
+      - "BACEA-Resultat-2024.csv"
+      - "BACEA-Dev_CPN-2024.csv"
+      - "BACEA-Recettes-2024.csv"
+      - "BACEA-Bilan-2024.csv"
+      - "Annexe1-Etat_CP-2024.csv"
+      - "ListDepFisc-PLRN-2024.csv"
+      - "Annexe2-Etat_AE-2024.csv"
+      - "Annexe1-Etat_AE_CP-2024.csv"
+      - "Annexe2-Etat_CP-2024.csv"
+      - "Annexe1-Etat_AE-2024.csv"
+      - "Annexe2-Etat_Comptable-2024.csv"
+      - "Annexe1-Etat_FDC_ADP-2024.csv"
+      - "Annexe2-Etat_Recouvt-2024.csv"
+      - "Annexe2-Dec_Auto-2024.csv"
+      - "Annexe1-Etat_Recettes.csv"
+      - "Annexe1-Etat_Titre_Cat-2024.csv"
+      - "notices_par_fichiers_csv_plrg_2024.zip"
+licence:
+  name: Licence Ouverte v2.0 (Etalab)
+  url: https://data.economie.gouv.fr/explore/dataset/plrg-2024/information/
+  read_on: 2026-11-26
+grain: Annex files of the execution law by programme and title group (voted, amended, carried over, opened, spent); 26 CSV files and one notice archive
+years:
+  first: 2024
+  last: 2024
+format: CSV attachments, served as plain text; the server compresses them with gzip only when the client sends Accept-Encoding gzip
+encoding: UTF-8
+generation: G5
+traps:
+  - The attachments are plain CSV. When the request asks for gzip (Accept-Encoding), the server answers with Content-Encoding gzip; a client that does not decode it reads bytes that start with 1f 8b. Check the response header, not the file name.
+  - The record of the dataset is not the data; the data is in the attachments.
+  - The revenue file is named Annexe1-Etat_Recettes.csv, without the year; the 2023 and 2025 datasets name it differently.
+status: verified
+verified_on: 2026-11-26

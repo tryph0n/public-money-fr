@@ -1,0 +1,33 @@
+id: stability-programme-france-2016
+title: Programme de Stabilité 2016-2019
+producer: French government, published by the European Commission
+access:
+  kind: manual
+  page_url: https://commission.europa.eu/publications/2016-european-semester-national-plans-france_en
+  download_url: https://commission.europa.eu/document/download/88e1f5dd-24e8-4047-a10a-121f88753ccc_fr?filename=european-semester-stability-programme_france_2016_fr.pdf
+  sha256: c5a23fc60f3fe1ce433ff6cd50811b2306e868dedfb109e2b3865273148f245e
+licence:
+  name: notspecified
+  url: https://www.budget.gouv.fr/ressources-documentaires/textes-documents-reference/programmes-stabilite-francais
+  read_on: 2026-11-26
+  basis: >-
+    Articles L321-1 and L322-1 of the code des relations entre le public et l'administration.
+    Article L321-1 lets any person reuse public information for other purposes than the
+    public service mission. Article L322-1 sets the condition that the information is not
+    altered, that its meaning is not distorted, and that its source and the date of its last
+    update are named. So the source and the date of the last update are named, and the
+    meaning is not distorted.
+  decision: D30 (plan section 10), 26 November 2026
+grain: PDF of 120 pages with public balance, debt and expenditure tables
+years:
+  first: 2016
+  last: 2016
+format: PDF
+encoding: not applicable
+generation: not applicable
+traps:
+  - commission.europa.eu answered a script with HTTP 429 on 26 November 2026, so the owner downloads the file in a browser; local copy in data/manual/stability-programmes/.
+  - The programme is a document of the French government. The Commission legal notice (CC BY 4.0 for "content owned by the EU") does not cover it, and the page of the stability programmes on budget.gouv.fr states no licence. The legal notice of budget.gouv.fr (Licence Ouverte Etalab 2.0 for the contents of that site) says nothing on PDF files one by one or on files hosted on other domains.
+  - The budget.gouv.fr page of stability programmes links a ministry copy of this programme (http://proxy-pubminefi.diffusion.finances.gouv.fr/pub/document/18/20780.pdf). A script could not fetch it on 26 November 2026 (the connection timed out three times, http and https); its SHA-256 could not be compared with the pinned copy. The pinned file is unchanged.
+status: verified
+verified_on: 2026-11-26

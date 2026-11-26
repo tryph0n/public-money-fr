@@ -1,0 +1,31 @@
+id: ameco-net-lending
+title: "Net lending (+) or net borrowing (-): general government :- Excessive deficit procedure (Including one-off proceeds relative to the allocation of mobile phone licences (UMTS))"
+producer: European Commission, DG Economic and Financial Affairs (AMECO), read from the Commission
+access:
+  kind: archive
+  download_url: https://ec.europa.eu/economy_finance/db_indicators/ameco/documents/ameco16.zip
+  member: AMECO16.TXT
+  series:
+    - FRA.1.0.0.0.UBLGE
+    - FRA.1.0.99.0.UBLGE
+    - FRA.1.0.319.0.UBLGE
+licence:
+  name: Creative Commons Attribution 4.0 International (CC BY 4.0)
+  url: https://commission.europa.eu/legal-notice_en
+  read_on: 2026-11-26
+grain: One annual series per unit for France (national currency, Mrd EUR, percentage of GDP at current prices), one row per series
+years:
+  first: 1960
+  last: 2028
+format: Zip of the chapter General Government (S13), one semicolon-separated text file (AMECO16.TXT), one column per year
+encoding: ISO-8859-1 with CRLF line ends
+generation: not applicable
+traps:
+  - Years after the last closed year are forecasts and must be flagged.
+  - Each code has several series, one per unit; select the series code explicitly.
+  - 'The AMECO page says "The main data source is Eurostat (the Statistical Office of the European Commission), complemented, where necessary, by other appropriate national and international sources". The legal notice says "content owned by the EU on this website is licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0) licence" and, for content not owned by the EU, "you may need to seek permission directly from the rightholders". The notice names no AMECO file, so CC BY 4.0 is the licence the Commission states for its own content; whether it reaches data that comes from Eurostat or other sources is not settled by the notice.'
+  - AMECO is read from the Commission, not through DBnomics, because DBnomics distributes its aggregated datasets under the ODbL (share-alike) and the project publishes under Licence Ouverte 2.0 (decision of the owner, 26 November 2026).
+  - The Redisstat SDMX API (agency ECFIN, dataflow FDMS_UBLGE) serves one unit only (percentage of GDP, code 319) and, for France, from 1978; the chapter zip has the three units from 1960.
+  - The chapter zip is replaced at each AMECO update (the file on 26 November 2026 was last modified on 24 November 2026); store the retrieval date with the data.
+status: verified
+verified_on: 2026-11-26
