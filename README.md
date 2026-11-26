@@ -39,6 +39,10 @@ Sphinx renders the `Args`, `Returns` and `Raises` sections as a parameter list o
 reference page (`sphinx.ext.napoleon`). Ruff checks the style (`D` rules, Google convention);
 it does not require a docstring on every object.
 
+Write types in the function signature, not in the docstring. Mypy checks the annotations, a
+copy in the docstring can drift from them, and a docstring type such as `int, optional`
+breaks the docs build (`nitpicky` mode).
+
 ```python
 def share(part: float, total: float) -> float:
     """Return a part as a share of a total.
