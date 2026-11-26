@@ -1,0 +1,47 @@
+id: plr-2015-execution
+title: PLR 2015 - projet de loi de règlement pour l'année 2015 - Données de l'exécution budgétaire
+producer: Ministères économiques et financiers, on data.gouv.fr only
+access:
+  kind: data_gouv
+  dataset_id: 57559e6c88ee382aa2640390
+  files:
+      - "PLR 2015 - Exécution par Mission et catégorie pour les CCF"
+      - "PLR 2015 - Exécution par Mission et catégorie pour les CAS"
+      - "PLR 2015 - Exécution par Mission et catégorie pour le BG"
+      - "PLR 2015 - Exécution par Ministère en CP pour les CAS"
+      - "PLR 2015 - Exécution par Ministère en CP pour les CCF"
+      - "PLR 2015 - Exécution par Ministère en CP pour le BG"
+      - "PLR 2015 - Exécution par Ministère en AE pour les CCF"
+      - "PLR 2015 - Exécution par Ministère en AE pour les CAS"
+      - "PLR 2015 - Exécution par Ministère en AE pour le BG"
+      - "PLR 2015 - Exécution par Mission en CP pour les CCF"
+      - "PLR 2015 - Exécution par Mission en CP pour les CAS"
+      - "PLR 2015 - Exécution par Mission en CP pour le BG"
+      - "PLR 2015 - Exécution par Mission en AE pour les CCF"
+      - "PLR 2015 - Exécution par Mission en AE pour les CAS"
+      - "PLR 2015 - Exécution par Mission en AE pour le BG"
+licence:
+  name: notspecified
+  url: https://www.data.gouv.fr/datasets/57559e6c88ee382aa2640390/
+  read_on: 2026-11-26
+  basis: >-
+    Articles L321-1 and L322-1 of the code des relations entre le public et l'administration.
+    Article L321-1 lets any person reuse public information for other purposes than the
+    public service mission. Article L322-1 sets the condition that the information is not
+    altered, that its meaning is not distorted, and that its source and the date of its last
+    update are named. So the source and the date of the last update are named, and the
+    meaning is not distorted.
+  decision: D24 (plan section 10), 26 November 2026
+grain: One file per budget part (BG, CAS, CCF), per credit type (AE, CP) and per view (mission, ministry, mission and category)
+years:
+  first: 2015
+  last: 2015
+format: CSV resources, 15 files
+encoding: Windows-1252
+generation: G2
+traps:
+  - The data.gouv.fr dataset declares no licence (notspecified); reuse rests on the basis above.
+  - Each file starts with preamble lines (GESTION;2015, Type budget) before the header; the year and the budget part are only there.
+  - Amounts are written with spaces as thousands separators.
+status: verified
+verified_on: 2026-11-26

@@ -1,0 +1,24 @@
+id: stability-programme-france-2016
+title: Programme de stabilité de la France, April 2016
+producer: French government, published by the European Commission
+access:
+  kind: manual
+  page_url: https://commission.europa.eu/publications/2016-european-semester-national-plans-france_en
+  download_url: https://commission.europa.eu/document/download/88e1f5dd-24e8-4047-a10a-121f88753ccc_fr?filename=european-semester-stability-programme_france_2016_fr.pdf
+  sha256: c5a23fc60f3fe1ce433ff6cd50811b2306e868dedfb109e2b3865273148f245e
+licence:
+  name: Creative Commons Attribution 4.0 International (CC BY 4.0)
+  url: https://commission.europa.eu/legal-notice_en
+  read_on: 2026-11-26
+grain: PDF of 120 pages with public balance, debt and expenditure tables
+years:
+  first: 2016
+  last: 2016
+format: PDF
+encoding: not applicable
+generation: not applicable
+traps:
+  - commission.europa.eu answered a script with HTTP 429 on 26 November 2026, so the owner downloads the file in a browser; local copy in data/manual/stability-programmes/.
+  - The legal notice licenses content owned by the EU unless otherwise indicated; the programme is a document of the French government, so the notice may not cover it. Confirm before a figure of this file enters a published dataset.
+status: verified
+verified_on: 2026-11-26

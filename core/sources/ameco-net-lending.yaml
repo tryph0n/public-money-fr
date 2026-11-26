@@ -1,0 +1,28 @@
+id: ameco-net-lending
+title: "AMECO UBLGE: Net lending (+) or net borrowing (-), general government (excessive deficit procedure)"
+producer: European Commission, DG Economic and Financial Affairs (AMECO), read through DBnomics
+access:
+  kind: dbnomics
+  provider: AMECO
+  dataset: UBLGE
+  dimensions:
+    geo:
+      - fra
+licence:
+  name: Creative Commons Attribution 4.0 International (CC BY 4.0)
+  url: https://commission.europa.eu/legal-notice_en
+  read_on: 2026-11-26
+grain: One annual series per unit for France (national currency, billion euros, share of GDP)
+years:
+  first: 1960
+  last: 2028
+format: Series and observations served by the DBnomics API (JSON)
+encoding: UTF-8
+generation: not applicable
+traps:
+  - Years after the last closed year are forecasts and must be flagged.
+  - Each code has several series, one per unit; select the unit explicitly.
+  - DBnomics is an access route; it states that data keeps the licence and terms of its original provider, and that its own aggregated datasets are under the ODbL.
+  - The terms_of_use that DBnomics gives for AMECO point to the Commission legal notice, which licenses content owned by the EU under CC BY 4.0 unless otherwise indicated.
+status: verified
+verified_on: 2026-11-26
