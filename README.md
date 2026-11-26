@@ -41,6 +41,15 @@ only its card (`README.md`) and `.gitattributes`.
 | [`sam-bot/public-money-security`](https://huggingface.co/datasets/sam-bot/public-money-security) | No |
 | [`sam-bot/public-money-election`](https://huggingface.co/datasets/sam-bot/public-money-election) | No |
 
+Publishing: `uv run python -m core.cli publish DATASET TABLE.parquet... [--dry-run]` uploads
+tables written by `write_table` to the dataset `DATASET` (core, finance, security or election)
+in one commit, with a card generated from the manifest (`core/publish/publisher.py`,
+`core/publish/card.py`). The card lists the inputs, producers, licences and build date; for a
+CC BY 4.0 input it says what the project changed, and for an input reused under articles L321-1
+and L322-1 of the CRPA it names the source and the date of its last update. A second publish of
+the same content creates no commit. `--dry-run` prints the files and needs no token. A real run
+reads the token from the `HF_TOKEN` environment variable only; it is a GitHub Actions secret.
+
 ## Develop
 
 Install: `uv sync`
