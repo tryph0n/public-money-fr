@@ -12,8 +12,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "huggingface-hub>=2.4.0",
     "mypy",
     "pre-commit",
+    "pyarrow>=26.0.1",
     "pytest",
     "ruff",
 ]
@@ -55,3 +57,7 @@ files = ["core"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
