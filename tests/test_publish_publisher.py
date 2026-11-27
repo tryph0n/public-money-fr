@@ -101,6 +101,8 @@ class FakeApi:
         repo_type: str,
     ) -> object:
         self.commits.append(([operation.path_in_repo for operation in operations], commit_message))
+        for operation in operations:
+            self.files[operation.path_in_repo] = operation.path_or_fileobj
         return None
 
 
@@ -180,6 +182,16 @@ def test_plan_is_none_when_the_stored_hash_is_the_new_hash(
     assert publisher.plan_commit(present, "0" * 64, upload) is not None
 
 
+def test_plan_adds_a_missing_file_even_when_the_stored_hash_matches(
+    tmp_path: Path, manifest: dict[str, Source]
+) -> None:
+    upload = upload_of(tmp_path, manifest)
+    present = ["README.md", "content.sha256"]
+    plan = publisher.plan_commit(present, upload.content_hash, upload)
+    assert plan is not None
+    assert "data/macro_fr.parquet" in {operation.path_in_repo for operation in plan.operations}
+
+
 def test_plan_refuses_a_table_file_that_the_upload_does_not_hold(
     tmp_path: Path, manifest: dict[str, Source]
 ) -> None:
@@ -222,6 +234,20 @@ def test_publish_commits_the_plan_through_the_client(
     upload = upload_of(tmp_path, manifest)
     assert publisher.publish(api, upload)
     assert api.commits == [(sorted(upload.files), "data: publish 1 table")]
+
+
+def test_publish_twice_commits_once_and_uploads_again_a_deleted_file(
+    tmp_path: Path, manifest: dict[str, Source]
+) -> None:
+    api = FakeApi(tmp_path, {})
+    upload = upload_of(tmp_path, manifest)
+    assert publisher.publish(api, upload)
+    assert not publisher.publish(api, upload)
+    assert len(api.commits) == 1
+    del api.files["data/macro_fr.parquet"]
+    assert publisher.publish(api, upload)
+    assert len(api.commits) == 2
+    assert api.files == dict(upload.files)
 
 
 def test_publish_stops_before_any_commit_when_a_table_would_be_dropped(

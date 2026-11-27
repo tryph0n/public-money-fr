@@ -53,7 +53,9 @@ licences, build date, and for each input the date of its last update that the pr
 links the material and prints the change notes that the table builder stores with
 `write_table(..., changes=...)`, and refuses the input without them. For an input with no
 declared licence it gives the basis of reuse from the manifest, the source page and the date of
-its last update. A second publish of the same content creates no commit. `--dry-run` prints the
+its last update. A second publish of the same content creates no commit, unless a file of the upload is missing
+from the dataset (for example deleted by hand): that file is uploaded again, even when the content
+did not change. A file changed by hand but still present is not detected. `--dry-run` prints the
 files and the card and makes no network call; it does not read the dataset, so it shows neither
 a refusal nor an unchanged hash. A network or Hub error ends the command with the error of the
 library and a non-zero exit code. A real run reads the token from the `HF_TOKEN` environment
