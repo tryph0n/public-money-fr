@@ -89,8 +89,7 @@ nomenclature build ([#27](https://github.com/tryph0n/public-money-fr/issues/27))
   of a year, because `nomenclature` has one row for each year and programme: a value given by
   one file of the year fills the row that the other files of that year share.
 - Where the files of one source give two labels for one programme, the parser keeps the longer
-  label if the shorter one is its start (a label cut by the file, as on line 147 of
-  `Annexe1-Etat_AE-2024.csv`), and fails otherwise.
+  label if the shorter one is its start (a label cut by the file), and fails otherwise.
 - A label frame can hold a programme that has no budget row (a nomenclature file lists every
   programme). The nomenclature build keeps only the years and programmes of the budget rows.
 
@@ -213,7 +212,7 @@ not be compared with executed title 2.
 | G4 2023 | `ae_t2_plf_2023`, `cp_t2_plf_2023`, `ae_hors_t2_plf_2023`, `cp_hors_t2_plf_2023` | `bill` |
 | G4 2023 | `ae_t2_amendements_2023`, `cp_t2_amendements_2023`, `ae_hors_t2_amendements_2023`, `cp_hors_t2_amendements_2023` | `amendments` |
 | G4 2023 | bill plus amendments of each record | `voted` (computed, see below) |
-| RAP synthesis 2021 and 2022 | the six columns of the executed block of the year | `executed`; the voted and previous-year blocks are not read |
+| RAP synthesis 2021 and 2022 | the title 2 and other-title columns of the executed block of the year (the AE and CP totals are a check) | `executed`; the voted and previous-year blocks are not read |
 | G5 `Annexe1` and `Annexe2`, AE and CP | `LFI` | `voted` from 2024; in 2023 a check of voted 2023 |
 | G5 `Annexe1` and `Annexe2`, AE and CP | `LFR` | `amending_laws` |
 | G5 `Annexe1` and `Annexe2`, AE and CP | `Report_N-1` | `carried_over` |
@@ -258,7 +257,8 @@ Columns with no stage, and why:
 `opened` equals the sum of the six columns from `LFI` to `Fongibilite_asymetrique`, without the
 columns that have no stage: the largest difference is 0.50 euro per row (the 2023 `Annexe1` AE
 and CP files, whose amounts are rounded to one decimal), and 0 in all other annex files of 2023
-to 2025. In the 12 annex budget files, `opened` equals the sum of the columns between the
+to 2025. The check cannot be made on programme 200 of `Annexe1` and programme 833 of `Annexe2`
+in 2023, because their `LFI` cell is in scientific notation. In the 12 annex budget files, `opened` equals the sum of the columns between the
 initial credits and the total, with `Recyclage_d'AE` in BACEA AE (difference 0).
 
 ### Voted 2010, 2015 and 2023
@@ -320,7 +320,7 @@ Programme 176, Police nationale (mission `Sécurité` in the 2011 file), in the 
 | Year | Files and generation | Budget part | Title groups | Stages |
 | --- | --- | --- | --- | --- |
 | 2010 | executed: `execution-2010-du-budget-general-en-ae` and `-en-cp` (G1, `t1` to `t7`); voted: `loi-de-finances-intiale-2011-budget-general` (G1, `aelf_2010`, `cplf_n1`, by `titre`) | `BG`, from the code rule (no part column) | `T2` from title 2; `other` from titles 3, 5 and 6 | `voted`, `executed` |
-| 2016 | `LFI2016-BG-Action_Titre.csv` (G2 voted, `Titre`); `PLR2016-Exec-Msn_AE-BG.csv`, `PLR2016-Exec-Msn_CP-BG.csv` (G2 execution, `T1` to `T7`) | `BG`, from the preamble `Type budget;Budget général` | `T2`, `other` | `bill`, `amendments`, `voted`, `executed` |
+| 2016 | `LFI2016-BG-Action_Titre.csv` (G2 voted, `Titre`); `PLR2016-Exec-Msn_AE-BG.csv`, `PLR2016-Exec-Msn_CP-BG.csv` (G2 execution, `T1` to `T7`) | `BG`, from the preamble `Type Budget;Budget général` | `T2`, `other` | `bill`, `amendments`, `voted`, `executed` |
 | 2019 | records of `loi-de-finances-initiale-pour-2019-lfi-2019-1` (G3 voted, `code_titre`); `PLR2019-Credits_Destination_Nature.xls`, sheet `Credits` (G3 execution, `titre`) | `BG`, from `type_de_budget_hors_budgets_annexes` (voted) and `typeBudget` (executed) | `T2`, `other` | `voted`, `executed` |
 | 2024 | `Annexe1-Etat_AE-2024.csv`, `Annexe1-Etat_CP-2024.csv` (G5) | `BG`, from the code rule (`Annexe1` holds the budget général only) | `T2` from `Titre 2 - Dépenses de personnel`, `other` from `Autres titres - Autres dépenses` | the eight stages from `voted` to `executed` |
 
