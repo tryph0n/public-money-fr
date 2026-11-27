@@ -1,6 +1,5 @@
 id: execution-2012-ae
-title: Exécution du budget de l'État 2012, en autorisations d'engagement (AE) suivant la nomenclature
-  mission, programme, action et titre (PLR 2012)
+title: Exécution du budget de l'État 2012, en autorisations d'engagement (AE) suivant la nomenclature mission, programme, action et titre (PLR 2012)
 producer: Direction du budget (Ministères économiques et financiers), through data.economie.gouv.fr
 access:
   kind: records
@@ -13,13 +12,11 @@ licence:
 last_update:
   date: 2018-12-13
   url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/execution-2012-du-budget-de-letat-en-ae-suivant-la-nomenclature-mission-programm
-  where: Field metas.default.modified of the dataset, 2018-12-13T20:51:42+00:00; the portal date of 13
-    December 2018 (see the traps)
+  where: Field metas.default.modified of the dataset, 2018-12-13T20:51:42+00:00; the portal date of 13 December 2018 (see the traps)
   read_on: 2026-11-27
   files:
     records: 2b9a2d6a683e411bb9f8c55e2fa36a5d67e6709db0e2dc127d985bd596e80a47
-grain: 'One record per programme, action and title group, with the commitment authorities (AE) executed
-  in 2012 (budget general, CAS and CCF); shape: wide by title'
+grain: 'One record per programme, action and title group, with the commitment authorities (AE) executed in 2012 (budget general, CAS and CCF); shape: wide by title'
 years:
   first: 2012
   last: 2012
@@ -27,19 +24,10 @@ format: Records served by the portal API (JSON), 680 records
 encoding: UTF-8
 generation: G1
 traps:
-- 'The records hold no year field: the year 2012 is read in the dataset title (field metas.default.title:
-  ''(PLR 2012)''). The id gives the same year.'
-- On 26 November 2026, 254 of the 637 datasets of data.economie.gouv.fr have metas.default.modified on
-  13 December 2018, between 20:21 and 22:10 UTC, which looks like a date of the portal (a move), not a
-  date that the producer states. It is used here because this dataset has no other date (no attachment,
-  and metas.default.data_processed is the day the portal last processed the records); it is later than
-  the end of the executed year.
-- The portal has no execution dataset of the annex budgets for 2010 to 2012 (no id or title of these years
-  names them), so the annex budgets of these years are missing from the sources.
-- 'One dataset holds the budget general (programmes 101 to 5xx), the special accounts of the CAS kind
-  (7xx) and of the CCF kind (8xx), which the datasets of 2010 and 2011 split in separate datasets. There
-  is no part column: the part comes from the programme code. It holds no annex budget (no programme from
-  600 to 699).'
+- 'The records hold no year field: the year 2012 is read in the dataset title (field metas.default.title: ''(PLR 2012)''). The id gives the same year.'
+- On 26 November 2026, 254 of the 637 datasets of data.economie.gouv.fr have metas.default.modified on 13 December 2018, between 20:21 and 22:10 UTC, which looks like a date of the portal (a move), not a date that the producer states. It is used here because this dataset has no other date (no attachment, and metas.default.data_processed is the day the portal last processed the records); it is later than the end of the executed year.
+- The portal has no execution dataset of the annex budgets for 2010 to 2012 (no id or title of these years names them), so the annex budgets of these years are missing from the sources.
+- 'One dataset holds the budget general (programmes 101 to 5xx), the special accounts of the CAS kind (7xx) and of the CCF kind (8xx), which the datasets of 2010 and 2011 split in separate datasets. There is no part column: the part comes from the programme code. It holds no annex budget (no programme from 600 to 699).'
 - The mission column is a label; the datasets of 2010 give a ministry and no mission.
 status: verified
 verified_on: 2026-11-27

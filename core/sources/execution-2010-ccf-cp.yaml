@@ -1,6 +1,5 @@
 id: execution-2010-ccf-cp
-title: Exécution du budget de l'État 2010, budget des comptes de concours financiers en crédits de paiement
-  (CP) (PLR 2010)
+title: Exécution du budget de l'État 2010, budget des comptes de concours financiers en crédits de paiement (CP) (PLR 2010)
 producer: Direction du budget (Ministères économiques et financiers), through data.economie.gouv.fr
 access:
   kind: records
@@ -13,13 +12,11 @@ licence:
 last_update:
   date: 2018-12-13
   url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/execution-2010-des-comptes-de-concours-financiers-en-cp
-  where: Field metas.default.modified of the dataset, 2018-12-13T20:37:49+00:00; the portal date of 13
-    December 2018 (see the traps)
+  where: Field metas.default.modified of the dataset, 2018-12-13T20:37:49+00:00; the portal date of 13 December 2018 (see the traps)
   read_on: 2026-11-27
   files:
     records: ca0f7f232c97e13a94c7bcade2034d66b74438f7d2da0b9f78384ccf20c92288
-grain: 'One record per programme, action and title group, with the payment credits (CP) executed in 2010
-  (special accounts of the CCF kind (comptes de concours financiers)); shape: wide by title'
+grain: 'One record per programme, action and title group, with the payment credits (CP) executed in 2010 (special accounts of the CCF kind (comptes de concours financiers)); shape: wide by title'
 years:
   first: 2010
   last: 2010
@@ -27,17 +24,10 @@ format: Records served by the portal API (JSON), 29 records
 encoding: UTF-8
 generation: G1
 traps:
-- 'The records hold no year field: the year 2010 is read in the dataset title (field metas.default.title:
-  ''(PLR 2010)''). The id gives the same year.'
-- On 26 November 2026, 254 of the 637 datasets of data.economie.gouv.fr have metas.default.modified on
-  13 December 2018, between 20:21 and 22:10 UTC, which looks like a date of the portal (a move), not a
-  date that the producer states. It is used here because this dataset has no other date (no attachment,
-  and metas.default.data_processed is the day the portal last processed the records); it is later than
-  the end of the executed year.
-- The portal has no execution dataset of the annex budgets for 2010 to 2012 (no id or title of these years
-  names them), so the annex budgets of these years are missing from the sources.
-- 'Wide shape: one record per programme and action, with one column per title (t1 to t7) and total_general
-  (the sum of the title cells). An empty amount cell is null, not 0.'
+- 'The records hold no year field: the year 2010 is read in the dataset title (field metas.default.title: ''(PLR 2010)''). The id gives the same year.'
+- On 26 November 2026, 254 of the 637 datasets of data.economie.gouv.fr have metas.default.modified on 13 December 2018, between 20:21 and 22:10 UTC, which looks like a date of the portal (a move), not a date that the producer states. It is used here because this dataset has no other date (no attachment, and metas.default.data_processed is the day the portal last processed the records); it is later than the end of the executed year.
+- The portal has no execution dataset of the annex budgets for 2010 to 2012 (no id or title of these years names them), so the annex budgets of these years are missing from the sources.
+- 'Wide shape: one record per programme and action, with one column per title (t1 to t7) and total_general (the sum of the title cells). An empty amount cell is null, not 0.'
 - The dataset holds the special accounts of the CCF kind (comptes de concours financiers) only.
 - The records give a ministry (ministere, libelle) and no mission; the programme code is in pgm.
 - 'The columns t1, t2, t4, t5 are absent (not null): no record has an amount in these titles.'

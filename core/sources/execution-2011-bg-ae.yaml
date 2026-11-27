@@ -12,13 +12,11 @@ licence:
 last_update:
   date: 2018-12-13
   url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/execution-2011-du-budget-general-en-ae
-  where: Field metas.default.modified of the dataset, 2018-12-13T20:52:26+00:00; the portal date of 13
-    December 2018 (see the traps)
+  where: Field metas.default.modified of the dataset, 2018-12-13T20:52:26+00:00; the portal date of 13 December 2018 (see the traps)
   read_on: 2026-11-27
   files:
     records: aec6154c1385bb699b6dacbe60e9df308e40f88b8d8fe08b520cf014a9c976ba
-grain: 'One record per programme, action and title group, with the commitment authorities (AE) executed
-  in 2011 (budget general); shape: long'
+grain: 'One record per programme, action and title group, with the commitment authorities (AE) executed in 2011 (budget general); shape: long'
 years:
   first: 2011
   last: 2011
@@ -26,18 +24,10 @@ format: Records served by the portal API (JSON), 1,686 records
 encoding: UTF-8
 generation: G1
 traps:
-- 'The records hold no year field: the year 2011 is read in the dataset title (field metas.default.title:
-  ''(PLR 2011)''). The id gives the same year.'
-- On 26 November 2026, 254 of the 637 datasets of data.economie.gouv.fr have metas.default.modified on
-  13 December 2018, between 20:21 and 22:10 UTC, which looks like a date of the portal (a move), not a
-  date that the producer states. It is used here because this dataset has no other date (no attachment,
-  and metas.default.data_processed is the day the portal last processed the records); it is later than
-  the end of the executed year.
-- The portal has no execution dataset of the annex budgets for 2010 to 2012 (no id or title of these years
-  names them), so the annex budgets of these years are missing from the sources.
-- 'Long shape, not wide: one record per programme, action and title, with the columns t_categorie (T1
-  to T7) and valeur. The payment credit dataset of the same year is wide by title, so a parser must not
-  assume one shape per year.'
+- 'The records hold no year field: the year 2011 is read in the dataset title (field metas.default.title: ''(PLR 2011)''). The id gives the same year.'
+- On 26 November 2026, 254 of the 637 datasets of data.economie.gouv.fr have metas.default.modified on 13 December 2018, between 20:21 and 22:10 UTC, which looks like a date of the portal (a move), not a date that the producer states. It is used here because this dataset has no other date (no attachment, and metas.default.data_processed is the day the portal last processed the records); it is later than the end of the executed year.
+- The portal has no execution dataset of the annex budgets for 2010 to 2012 (no id or title of these years names them), so the annex budgets of these years are missing from the sources.
+- 'Long shape, not wide: one record per programme, action and title, with the columns t_categorie (T1 to T7) and valeur. The payment credit dataset of the same year is wide by title, so a parser must not assume one shape per year.'
 - The dataset holds the budget general only.
 status: verified
 verified_on: 2026-11-27
