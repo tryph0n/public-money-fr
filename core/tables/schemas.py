@@ -3,7 +3,8 @@
 The columns, types and allowed values come from the "Shared tables" section of the
 architecture plan. Every column has a description, and an amount column states its unit
 there. A schema is strict: a column that the table does not define is an error. Codes are
-strings kept as published, never numbers, and `year` is `int16`.
+strings kept as published, never numbers, and `year` is `int16`. The module also holds the
+schema of the label frame that the State budget parsers return, which is not published.
 """
 
 from collections.abc import Callable
@@ -12,7 +13,11 @@ from typing import Any
 import pandas as pd
 import pandera.pandas as pa
 
-BUDGET_PARTS = ("BG", "BA", "CAS", "CCF", "unsplit")
+#: The four budget parts. `state_budget_lines` and `nomenclature` allow these only.
+BUDGET_PARTS = ("BG", "BA", "CAS", "CCF")
+#: Budget parts of `state_revenue_lines` and `state_employment`, which keep `unsplit` until
+#: their follow-up ticket decides (M2-01a, issue #170).
+BUDGET_PARTS_OR_UNSPLIT = (*BUDGET_PARTS, "unsplit")
 UNITS = ("eur", "pct_gdp", "pct")
 
 
@@ -88,7 +93,10 @@ def _schema(
     return pa.DataFrameSchema(columns, checks=checks, strict=strict, name=name)
 
 
-_BUDGET_PART = "Budget part: BG, BA, CAS, CCF, or unsplit where the source gives no part."
+_BUDGET_PART = "Budget part: BG, BA, CAS or CCF."
+_BUDGET_PART_OR_UNSPLIT = (
+    "Budget part: BG, BA, CAS, CCF, or unsplit where the source gives no part."
+)
 _PROGRAMME = "Programme code, three digits, kept as published."
 PROGRAMME_CODE_PATTERN = r"[0-9]{3}"
 MISSION_CODE_PATTERN = r"[A-Z]{2}"
@@ -125,8 +133,8 @@ STATE_BUDGET_LINES = _schema(
             allowed=("AE", "CP"),
         ),
         "basis": _text(
-            "Basis of the figure: budget, totals_only or pdf_extraction.",
-            allowed=("budget", "totals_only", "pdf_extraction"),
+            "Basis of the figure: budget or pdf_extraction.",
+            allowed=("budget", "pdf_extraction"),
         ),
         "amount_eur": _amount(_EUROS),
         "source_id": _source_id(),
@@ -160,11 +168,42 @@ NOMENCLATURE = _schema(
     },
 )
 
+#: Labels that a State budget parser returns next to its rows (docs page "State budget
+#: model", rule 1). It is not a published table, so it is not in `SCHEMAS`: M2-07 merges the
+#: frames of a year into `nomenclature`. Check a frame with
+#: `validate_table(frame, "label_frame", schema=LABEL_FRAME, key=LABEL_FRAME_KEY)`.
+LABEL_FRAME = _schema(
+    "label_frame",
+    {
+        "year": _year("Year of the amounts, as in the budget rows."),
+        "budget_part": _text(_BUDGET_PART, allowed=BUDGET_PARTS),
+        "programme_code": _text(_PROGRAMME, pattern=PROGRAMME_CODE_PATTERN),
+        "programme_label": _text(
+            "Programme label as published, spaces around it removed; null where the file "
+            "gives no programme label.",
+            nullable=True,
+            pattern=r"\S(?:[\s\S]*\S)?",
+        ),
+        "mission_code": _text(
+            "Mission code, two letters as published; null where the file gives none. "
+            "Never read from a label.",
+            nullable=True,
+            pattern=MISSION_CODE_PATTERN,
+        ),
+        "mission_label": _text(
+            "Mission label as published; null where the file gives no mission.", nullable=True
+        ),
+        "source_id": _source_id(),
+    },
+)
+#: One row per year, programme and source file.
+LABEL_FRAME_KEY = ("year", "programme_code", "source_id")
+
 STATE_REVENUE_LINES = _schema(
     "state_revenue_lines",
     {
         "year": _year(),
-        "budget_part": _text(_BUDGET_PART, allowed=BUDGET_PARTS),
+        "budget_part": _text(_BUDGET_PART_OR_UNSPLIT, allowed=BUDGET_PARTS_OR_UNSPLIT),
         "hierarchy_level": _small_int(
             "Hierarchy level of the line as published; null where the file has no level.",
             nullable=True,
@@ -193,7 +232,7 @@ STATE_EMPLOYMENT = _schema(
     "state_employment",
     {
         "year": _year(),
-        "budget_part": _text(_BUDGET_PART, allowed=BUDGET_PARTS),
+        "budget_part": _text(_BUDGET_PART_OR_UNSPLIT, allowed=BUDGET_PARTS_OR_UNSPLIT),
         "programme_code": _text(_PROGRAMME, pattern=PROGRAMME_CODE_PATTERN),
         "stage": _text("Stage of the figure.", allowed=("bill", "amendments", "voted", "executed")),
         "fte": _amount("ETPT, full-time equivalent worked over the year."),

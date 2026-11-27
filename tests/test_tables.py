@@ -5,7 +5,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from core.tables.schemas import KEYS, SCHEMAS, frame_check_columns
+from core.tables.schemas import KEYS, LABEL_FRAME, LABEL_FRAME_KEY, SCHEMAS, frame_check_columns
 from core.tables.writer import TableError, read_metadata, validate_table, write_table
 
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
@@ -473,6 +473,77 @@ def test_line_code_must_be_digits() -> None:
     frame.loc[0, "line_code"] = "11A"
     with pytest.raises(TableError, match="line_code"):
         validate_table(frame, "state_revenue_lines")
+
+
+@pytest.mark.parametrize("table", ["state_budget_lines", "nomenclature"])
+def test_budget_lines_and_nomenclature_allow_the_four_parts_only(table: str) -> None:
+    frame = good_frames()[table]
+    for part in ("BG", "BA", "CAS", "CCF"):
+        frame["budget_part"] = [part, part]
+        validate_table(frame, table)
+    frame["budget_part"] = ["BG", "unsplit"]
+    with pytest.raises(TableError, match="budget_part"):
+        validate_table(frame, table)
+
+
+@pytest.mark.parametrize("table", ["state_revenue_lines", "state_employment"])
+def test_revenue_and_employment_keep_the_part_unsplit(table: str) -> None:
+    frame = good_frames()[table]
+    frame["budget_part"] = ["BG", "unsplit"]
+    validate_table(frame, table)
+
+
+def test_basis_totals_only_is_refused() -> None:
+    frame = good_frames()["state_budget_lines"]
+    frame["basis"] = ["totals_only", "totals_only"]
+    with pytest.raises(TableError, match="basis"):
+        validate_table(frame, "state_budget_lines")
+
+
+def _label_frame() -> pd.DataFrame:
+    """Labels of programme 176 from two sources of 2024, and from a source with no label."""
+    return pd.DataFrame(
+        {
+            "year": pd.array([2024, 2024, 2010], dtype="int16"),
+            "budget_part": ["BG", "BG", "BG"],
+            "programme_code": ["176", "176", "176"],
+            "programme_label": ["Police nationale", "Police nationale", None],
+            "mission_code": [None, "DA", None],
+            "mission_label": ["Sécurités", None, None],
+            "source_id": ["a", "b", "a"],
+        }
+    )
+
+
+def _check_label_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    return validate_table(frame, "label_frame", schema=LABEL_FRAME, key=LABEL_FRAME_KEY)
+
+
+def test_label_frame_takes_null_labels_and_is_not_published() -> None:
+    _check_label_frame(_label_frame())
+    assert LABEL_FRAME.name not in SCHEMAS
+
+
+def test_label_frame_has_one_row_per_year_programme_and_source() -> None:
+    frame = _label_frame()
+    frame.loc[1, "source_id"] = "a"
+    with pytest.raises(TableError, match="repeated key"):
+        _check_label_frame(frame)
+
+
+@pytest.mark.parametrize("label", [" Police nationale", "Police nationale\n", ""])
+def test_label_frame_programme_label_has_no_spaces_around_it(label: str) -> None:
+    frame = _label_frame()
+    frame.loc[0, "programme_label"] = label
+    with pytest.raises(TableError, match="programme_label"):
+        _check_label_frame(frame)
+
+
+def test_label_frame_refuses_the_part_unsplit() -> None:
+    frame = _label_frame()
+    frame.loc[0, "budget_part"] = "unsplit"
+    with pytest.raises(TableError, match="budget_part"):
+        _check_label_frame(frame)
 
 
 def test_a_year_and_stage_cannot_mix_two_basis_values() -> None:
