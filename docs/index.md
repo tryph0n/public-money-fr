@@ -20,6 +20,7 @@ Open data projects on French public money, built on a shared core package.
 catalogue
 _generated/cli
 methods
+state_budget_model
 public_finance
 security_means
 election_2027
