@@ -52,6 +52,7 @@ def run_script(
     token: str = "",
     open_issue: str = "",
     use_log_dir: bool = True,
+    locale: str | None = None,
 ) -> tuple[str, str]:
     """Run the report script with a fake `gh`; return the posted text and the `gh` calls."""
     fake = tmp_path / "bin" / "gh"
@@ -73,6 +74,8 @@ def run_script(
         "HF_TOKEN": token,
         "OPEN_ISSUE": open_issue,
     }
+    if locale is not None:
+        env["LANG"] = locale
     if use_log_dir:
         env["LOG_DIR"] = str(logs)
     subprocess.run(["bash", str(SCRIPT)], env=env, check=True, capture_output=True)
@@ -115,9 +118,11 @@ def test_a_very_long_error_line_is_cut_and_posted_from_a_file(tmp_path: Path) ->
 
 def test_a_cut_does_not_leave_part_of_a_token(tmp_path: Path) -> None:
     token = "secret-value-123"
-    line = "ERROR " + "x" * 1992 + token + "y" * 100
+    line = "ERROR " + "x" * 1984 + token + "y" * 100
     text, _ = run_script(tmp_path, line.encode(), token=token)
-    assert "secret" not in text
+    pieces = [token[i : i + 6] for i in range(len(token) - 5)]
+    assert not any(piece in text for piece in pieces)
+    assert "***" in text
     assert "cut to 2000 characters" in text
 
 
@@ -135,3 +140,8 @@ def test_only_issues_of_the_workflow_are_found_and_the_open_one_gets_the_comment
     assert "issue comment 42" in calls
     assert "issue create" not in calls
     assert "ERROR again" in text
+
+
+def test_the_cut_counts_characters_under_the_c_locale(tmp_path: Path) -> None:
+    body = run_script(tmp_path, ("ERROR " + "\u20ac" * 3000).encode(), locale="C")[0]
+    assert "cut to 2000 characters" in body

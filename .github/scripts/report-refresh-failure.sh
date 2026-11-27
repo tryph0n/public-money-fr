@@ -3,6 +3,8 @@
 # Input (environment): FAILED_STEP, LOG_DIR, RUN_URL, GH_TOKEN, GH_REPO; HF_TOKEN
 # is optional and only used to keep its value out of the issue.
 set -euo pipefail
+# Count characters, not bytes, when the error line is cut, whatever the locale of the caller.
+export LC_ALL=C.UTF-8
 
 title="Data refresh failed"
 log="${LOG_DIR:-}/$FAILED_STEP.log"
