@@ -37,6 +37,11 @@ licence:
   name: Licence Ouverte v2.0 (Etalab)
   url: https://data.economie.gouv.fr/explore/dataset/plrg-2024/information/
   read_on: 2026-11-26
+last_update:
+  date: 2025-04-29
+  url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/plrg-2024/attachments
+  where: The HTTP Last-Modified header of all 27 attachments is 29 April 2025 (between 15:33:35 and 15:37:53 GMT); the dataset field metas.default.modified (2024-04-17) is before the end of the data year, so it is not used.
+  read_on: 2026-11-26
 grain: Annex files of the execution law by programme and title group (voted, amended, carried over, opened, spent); 26 CSV files and one notice archive
 years:
   first: 2024
@@ -48,5 +53,6 @@ traps:
   - The attachments are plain CSV. When the request asks for gzip (Accept-Encoding), the server answers with Content-Encoding gzip; a client that does not decode it reads bytes that start with 1f 8b. Check the response header, not the file name.
   - The record of the dataset is not the data; the data is in the attachments.
   - The revenue file is named Annexe1-Etat_Recettes.csv, without the year; the 2023 and 2025 datasets name it differently.
+  - last_update comes from the HTTP Last-Modified header of the attachments (all 27 give 29 April 2025), because the dataset field is wrong. On the data.economie.gouv.fr API (read on 26 November 2026), metas.default.modified and dcat.created are 2024-04-17, which is before the end of the year 2024 that the data covers and is also the value of the PLRG 2025 dataset. The attachment files are what this project reuses. metas.default.data_processed (2025-05-05) is the day the portal last processed the dataset, not a date that the producer states.
 status: verified
 verified_on: 2026-11-26

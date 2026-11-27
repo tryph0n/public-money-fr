@@ -21,11 +21,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from huggingface_hub import HfApi
 
+from core.publish.card import REPOSITORY_URL, card_header
+
 logger = logging.getLogger(__name__)
 
 NAMESPACE = "sam-bot"
 DATASET_NAMES = ("core", "finance", "security", "election")
-REPOSITORY_URL = "https://github.com/tryph0n/public-money-fr"
 CARD_PATH = "README.md"
 TEST_FILE_PATH = "_ci_check/test.parquet"
 
@@ -68,13 +69,7 @@ def build_card(repo_id: str) -> str:
     """
     title = repo_id.split("/", 1)[1]
     return (
-        "---\n"
-        "license: etalab-2.0\n"
-        "language:\n"
-        "- fr\n"
-        "pretty_name: " + title + "\n"
-        "---\n"
-        "\n"
+        card_header(title) + "\n"
         f"# {title}\n"
         "\n"
         "Open data on French public money, processed and published by the public-money-fr "

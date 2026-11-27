@@ -18,6 +18,11 @@ licence:
     update are named. So the source and the date of the last update are named, and the
     meaning is not distorted.
   decision: D30 (plan section 10), 26 November 2026
+last_update:
+  date: 2016-04-13
+  url: https://commission.europa.eu/document/download/88e1f5dd-24e8-4047-a10a-121f88753ccc_fr?filename=european-semester-stability-programme_france_2016_fr.pdf
+  where: 'Cover page of the document: "Version adoptée en Conseil des Ministres du 13 Avril 2016"'
+  read_on: 2026-11-26
 grain: PDF of 120 pages with public balance, debt and expenditure tables
 years:
   first: 2016
@@ -29,5 +34,6 @@ traps:
   - commission.europa.eu answered a script with HTTP 429 on 26 November 2026, so the owner downloads the file in a browser; local copy in data/manual/stability-programmes/.
   - The programme is a document of the French government. The Commission legal notice (CC BY 4.0 for "content owned by the EU") does not cover it, and the page of the stability programmes on budget.gouv.fr states no licence. The legal notice of budget.gouv.fr (Licence Ouverte Etalab 2.0 for the contents of that site) says nothing on PDF files one by one or on files hosted on other domains.
   - The budget.gouv.fr page of stability programmes links a ministry copy of this programme (http://proxy-pubminefi.diffusion.finances.gouv.fr/pub/document/18/20780.pdf). A script could not fetch it on 26 November 2026 (the connection timed out three times, http and https); its SHA-256 could not be compared with the pinned copy. The pinned file is unchanged.
+  - The Commission page (page_url) gives 11 November 2016 next to this file. The document states the version adopted by the Council of Ministers on 13 April 2016, and the PDF metadata gives 12 April 2016 as its last change; last_update uses the date that the document states.
 status: verified
 verified_on: 2026-11-26

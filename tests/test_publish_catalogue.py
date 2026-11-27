@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from core.publish.catalogue import TABLE_FILE, render_page, write_catalogue
+from core.publish.catalogue import NO_DATE, TABLE_FILE, render_page, render_table, write_catalogue
 from core.sources.manifest import MANIFEST_DIR, ManifestError, load_manifest
 
 
@@ -80,3 +80,26 @@ def test_markup_in_a_value_is_escaped() -> None:
     source = next(iter(load_manifest().values()))
     changed = type(source)(**{**source.__dict__, "title": "a *b* | c_d"})
     assert r"a \*b\* \| c\_d" in render_page(changed)
+
+
+def test_page_and_table_give_the_last_update_stated_by_the_producer() -> None:
+    sources = load_manifest()
+    for source in sources.values():
+        page = render_page(source)
+        assert "## Last update" in page
+        if source.last_update is None:
+            assert "states no usable date of last update" in page
+        else:
+            assert f"- Date stated by the producer: {source.last_update.date.isoformat()}" in page
+            assert f"- Stated at: <{source.last_update.url}>" in page
+    table = render_table(sources.values())
+    assert "| Last update |" in table
+    assert "| 2016-06-06 |" in table
+    assert "| 2025-04-29 |" in table
+
+
+def test_a_source_without_a_date_says_so_on_its_page_and_in_the_table() -> None:
+    source = load_manifest()["ameco-net-lending"]
+    undated = type(source)(**{**source.__dict__, "last_update": None})
+    assert "states no usable date of last update" in render_page(undated)
+    assert f"| {NO_DATE} |" in render_table([undated])

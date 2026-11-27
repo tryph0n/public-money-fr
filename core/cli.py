@@ -13,7 +13,11 @@ from core.fetch.fetcher import (
     Fetcher,
 )
 from core.fetch.http import FetchError
+from core.publish.card import CardError
+from core.publish.hf_check import DATASET_NAMES
+from core.publish.publisher import PublishError, run
 from core.sources.manifest import MANIFEST_DIR, ManifestError, load_manifest
+from core.tables.writer import TableError
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +34,18 @@ def build_parser() -> argparse.ArgumentParser:
     fetch.add_argument("--manual-dir", type=Path, default=DEFAULT_MANUAL_DIR)
     fetch.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
     fetch.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
+    publish = commands.add_parser(
+        "publish", help="publish Parquet tables to a Hugging Face dataset"
+    )
+    publish.add_argument("dataset", choices=DATASET_NAMES)
+    publish.add_argument("tables", nargs="+", type=Path, help="Parquet files from write_table")
+    publish.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the files and the card that would be uploaded; makes no network call, so it "
+        "shows neither a refusal nor an unchanged hash",
+    )
+    publish.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
     return parser
 
 
@@ -50,6 +66,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ManifestError as error:
         logger.error("%s", error)
         return 2
+    if args.command == "publish":
+        try:
+            return run(args.dataset, args.tables, manifest, dry_run=args.dry_run)
+        except (PublishError, TableError, CardError) as error:
+            logger.error("%s", error)
+            return 2
     unknown = [source_id for source_id in args.source_ids if source_id not in manifest]
     if unknown:
         logger.error("unknown source id: %s", ", ".join(unknown))

@@ -29,6 +29,12 @@ intersphinx_mapping = {
     "pandas": ("https://pandas.pydata.org/docs/", None),
 }
 
+# The publisher protocol names a huggingface_hub class under its private module path, which
+# the library's documentation inventory does not list.
+nitpick_ignore = [
+    ("py:class", "huggingface_hub._commit_api.CommitOperationAdd"),
+]
+
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
 templates_path = ["_templates"]
 exclude_patterns = ["_build", f"_generated/catalogue/{TABLE_FILE}"]

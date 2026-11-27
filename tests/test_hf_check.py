@@ -60,6 +60,26 @@ def test_card_has_metadata_and_repository_link() -> None:
     assert hf_check.REPOSITORY_URL in card
 
 
+@pytest.mark.parametrize("name", ["core", "finance", "security", "election"])
+def test_card_is_the_same_text_as_before_the_shared_header(name: str) -> None:
+    assert hf_check.build_card(f"sam-bot/public-money-{name}") == (
+        "---\n"
+        "license: etalab-2.0\n"
+        "language:\n"
+        "- fr\n"
+        f"pretty_name: public-money-{name}\n"
+        "---\n"
+        "\n"
+        f"# public-money-{name}\n"
+        "\n"
+        "Open data on French public money, processed and published by the public-money-fr "
+        "project. This card is a placeholder; the generated card will list the inputs, their "
+        "producers and licences, and the build date.\n"
+        "\n"
+        "Source code and documentation: https://github.com/tryph0n/public-money-fr\n"
+    )
+
+
 def test_test_file_is_valid_parquet() -> None:
     table = pq.read_table(io.BytesIO(hf_check.build_test_parquet()))
     assert table.num_rows == 2

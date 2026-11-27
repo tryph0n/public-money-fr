@@ -17,6 +17,12 @@ VALID = {
         "url": "https://data.example.org/demo",
         "read_on": datetime.date(2026, 11, 26),
     },
+    "last_update": {
+        "date": datetime.date(2026, 10, 2),
+        "url": "https://data.example.org/api/demo",
+        "where": "Field modified of the dataset",
+        "read_on": datetime.date(2026, 11, 26),
+    },
     "grain": "One row per programme",
     "years": {"first": 2019, "last": 2019},
     "format": "CSV",
@@ -46,6 +52,52 @@ def test_valid_file_loads(tmp_path: Path) -> None:
     assert source.id == "demo"
     assert (source.first_year, source.last_year) == (2019, 2019)
     assert source.licence.read_on == datetime.date(2026, 11, 26)
+
+
+def test_last_update_loads_and_may_be_empty(tmp_path: Path) -> None:
+    last_update = load_source(write(tmp_path)).last_update
+    assert last_update is not None
+    assert last_update.date == datetime.date(2026, 10, 2)
+    assert last_update.url == "https://data.example.org/api/demo"
+    assert last_update.where == "Field modified of the dataset"
+    assert last_update.read_on == datetime.date(2026, 11, 26)
+    assert load_source(write(tmp_path, last_update=None)).last_update is None
+
+
+def test_last_update_is_a_required_key(tmp_path: Path) -> None:
+    data = {key: value for key, value in VALID.items() if key != "last_update"}
+    path = tmp_path / "demo.yaml"
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(ManifestError, match=r"^demo\.yaml: last_update: missing"):
+        load_source(path)
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"where": ""}, r"^demo\.yaml: last_update\.where"),
+        ({"url": None}, r"^demo\.yaml: last_update\.url"),
+        ({"date": "soon"}, r"^demo\.yaml: last_update\.date: must be a date"),
+        ({"other": 1}, r"^demo\.yaml: last_update\.other: unknown field"),
+        (
+            {"date": datetime.date(2026, 11, 20), "read_on": datetime.date(2026, 11, 19)},
+            r"^demo\.yaml: last_update\.date: must not be after its read_on date",
+        ),
+    ],
+)
+def test_invalid_last_update_names_the_field(
+    tmp_path: Path, changes: dict[str, object], message: str
+) -> None:
+    last_update = {**VALID["last_update"], **changes}  # type: ignore[dict-item]
+    with pytest.raises(ManifestError, match=message):
+        load_source(write(tmp_path, last_update=last_update))
+
+
+def test_last_update_missing_key_is_named(tmp_path: Path) -> None:
+    last_update = {**VALID["last_update"]}  # type: ignore[dict-item]
+    del last_update["read_on"]
+    with pytest.raises(ManifestError, match=r"^demo\.yaml: last_update\.read_on: missing"):
+        load_source(write(tmp_path, last_update=last_update))
 
 
 def test_invalid_yaml_names_the_file(tmp_path: Path) -> None:
@@ -199,6 +251,23 @@ def test_shipped_manifest_has_the_five_entries() -> None:
     for source in sources.values():
         assert source.licence.url.startswith("https://")
         assert source.licence.read_on == datetime.date(2026, 11, 26)
+
+
+def test_shipped_last_update_dates_are_the_producer_dates() -> None:
+    sources = load_manifest(MANIFEST_DIR)
+    expected = {
+        "ameco-net-lending": (datetime.date(2026, 11, 24), "economy-finance.ec.europa.eu"),
+        "lfi-2019-voted": (datetime.date(2019, 3, 21), "data.economie.gouv.fr/api/"),
+        "plrg-2024-execution": (datetime.date(2025, 4, 29), "plrg-2024/attachments"),
+        "plr-2015-execution": (datetime.date(2016, 6, 6), "www.data.gouv.fr/api/1/datasets/"),
+        "stability-programme-france-2016": (datetime.date(2016, 4, 13), "commission.europa.eu"),
+    }
+    for source_id, (date, host) in expected.items():
+        last_update = sources[source_id].last_update
+        assert last_update is not None
+        assert last_update.date == date
+        assert host in last_update.url
+        assert last_update.read_on == datetime.date(2026, 11, 26)
 
 
 def test_shipped_2015_execution_uses_the_legal_basis() -> None:

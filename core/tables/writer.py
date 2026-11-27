@@ -1,15 +1,16 @@
 """Write a shared table to Parquet after it passes its schema.
 
 `write_table` validates the frame against the schema of the table, checks the key, and
-stores the source ids, the build date and the commit in the file. `read_metadata` reads
-them back without loading the rows.
+stores the source ids, the change notes, the build date and the commit in the file.
+`read_metadata` reads them back without loading the rows.
 """
 
 import datetime
 import json
 import logging
 import subprocess
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -45,13 +46,16 @@ class TableMetadata:
     """What a written table says about itself.
 
     The fields are the table name, the manifest ids of the source files (sorted, without
-    duplicates), the build date (ISO 8601) and the git commit of the code that built it.
+    duplicates), the build date (ISO 8601), the git commit of the code that built it, and
+    the change notes.
     """
 
     table: str
     source_ids: tuple[str, ...]
     build_date: str
     commit: str
+    #: What the code that built the table changed in the data of a source, by source id.
+    changes: Mapping[str, str] = field(default_factory=dict)
 
 
 def current_commit() -> str:
@@ -159,6 +163,7 @@ def write_table(
     path: Path,
     source_ids: list[str],
     *,
+    changes: Mapping[str, str] | None = None,
     build_date: datetime.date | None = None,
     commit: str | None = None,
 ) -> TableMetadata:
@@ -171,6 +176,10 @@ def write_table(
         table: Name of the shared table.
         path: Parquet file to write.
         source_ids: Manifest ids of the source files that the rows come from.
+        changes: What the code that builds the table changes in the data of a source, by
+            source id: the series or rows it keeps, how it reshapes and converts them. The
+            dataset card prints these notes; it needs one for each input under CC BY 4.0,
+            whose licence asks that changes be indicated.
         build_date: Date of the build; today when omitted.
         commit: Git commit of the code; the checked-out commit when omitted.
 
@@ -178,15 +187,26 @@ def write_table(
         The metadata stored in the file.
 
     Raises:
-        TableError: If the frame breaks the contract of the table.
+        TableError: If the frame breaks the contract of the table, or a change note is
+            empty or names a source that is not in `source_ids`.
         RuntimeError: If `commit` is omitted and git cannot give it.
     """
     validate_table(frame, table)
+    notes = dict(sorted((changes or {}).items()))
+    stray = sorted(set(notes) - set(source_ids))
+    if stray:
+        raise TableError(
+            f"table {table!r}: change notes for sources it does not use: {', '.join(stray)}"
+        )
+    empty = [source_id for source_id, note in notes.items() if not note.strip()]
+    if empty:
+        raise TableError(f"table {table!r}: empty change notes for: {', '.join(empty)}")
     metadata = TableMetadata(
         table=table,
         source_ids=tuple(sorted(set(source_ids))),
         build_date=(build_date or datetime.date.today()).isoformat(),
         commit=commit or current_commit(),
+        changes=notes,
     )
     arrow = _to_arrow(frame, table)
     stored = {
@@ -196,6 +216,7 @@ def write_table(
                 "source_ids": list(metadata.source_ids),
                 "build_date": metadata.build_date,
                 "commit": metadata.commit,
+                "changes": notes,
             }
         ).encode()
     }
@@ -227,4 +248,5 @@ def read_metadata(path: Path) -> TableMetadata:
         source_ids=tuple(data["source_ids"]),
         build_date=data["build_date"],
         commit=data["commit"],
+        changes=data.get("changes", {}),
     )
