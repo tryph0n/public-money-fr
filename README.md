@@ -92,6 +92,23 @@ web page where data was asked for) stops the run with an error that names the ho
 retry. A source of kind `manual` is never downloaded: put the file in `data/manual/` (or in
 `data/raw/<source id>/`); it is copied and checked against the SHA-256 of the manifest.
 
+### Committed rows of manual sources
+
+The runner has no copy of a file of kind `manual`, and raw files are never committed. So the
+project parser of such a file runs on the machine of the owner, and its rows are committed in
+`core/sources/rows/<source id>/<table>.jsonl`: a header line (source id, table, SHA-256 of the
+raw file) and one JSON line for each row. A parser is registered in `Builder.manual_parsers`.
+Put the raw file in `data/manual/`, then run `uv run python -m core.cli extract [table ...]`
+(`--manual-dir`, `--rows-dir`); two runs on the same file give the same bytes. Extract again
+when the parser changes, and commit the diff.
+
+`build` gives the builder this file in place of the raw file, also on a machine that has the raw
+file, and the builder reads it with `core.tables.manual.read_rows` (types checked against the
+schema of the table). `build` refuses a file whose SHA-256 is not the `sha256` of the manifest,
+and names the source and both checksums. `uv run pytest tests/test_manual_rows.py` compares the
+rows of each registered parser with the committed file when the raw file is in `data/manual/`,
+and skips otherwise.
+
 ### Write a shared table
 
 `core.tables.schemas.SCHEMAS` holds one pandera schema for each shared table (column types,

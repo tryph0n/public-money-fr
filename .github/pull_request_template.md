@@ -30,3 +30,4 @@ Closes #
 - [ ] CI (`.github/workflows/`): updated in this pull request (say what), or no update needed (say why):
 - [ ] Data pipeline (refresh workflow, source manifest, data catalogue): updated in this pull request (say what), or no update needed (say why):
 - [ ] Other shared files (for example `pyproject.toml`, `uv.lock`, `render.yaml`, `.readthedocs.yaml`, this template): updated in this pull request (say what), or no update needed (say why):
+- [ ] Parser of a manual source (kind `manual`): this pull request does not change it, or it gives here the output of `uv run pytest tests/test_manual_rows.py` run on a machine that has the raw file in `data/manual/` (CI never has the raw file), and the committed rows of the source are extracted again:
