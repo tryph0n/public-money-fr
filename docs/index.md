@@ -18,6 +18,7 @@ Open data projects on French public money, built on a shared core package.
 :caption: Contents
 
 catalogue
+_generated/cli
 methods
 public_finance
 security_means

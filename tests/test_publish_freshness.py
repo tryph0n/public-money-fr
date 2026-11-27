@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from core.cli import main
 from core.fetch.lockfile import LockedFile, Lockfile
 from core.publish import publisher
 from core.publish.freshness import StaleDateError, check_last_update
@@ -14,6 +13,7 @@ from tests.test_publish_publisher import (
     CRPA,
     LOCK,
     FakeApi,
+    run_cli,
     write_commitments,
     write_macro,
 )
@@ -120,8 +120,8 @@ def test_cli_stops_with_code_2_and_needs_the_lockfile(
     path = write_macro(tmp_path / "a.parquet")
     stale = tmp_path / "stale.lock.json"
     stale.write_text(relocked(LOCK, AMECO, sha256=OTHER).dumps(), encoding="utf-8")
-    assert main(["publish", "core", str(path), "--dry-run", "--lock", str(stale)]) == 2
+    assert run_cli(tmp_path, [path], "--dry-run", "--lock", str(stale)) == 2
     assert "Read the date again at" in caplog.text
     missing = tmp_path / "none.json"
-    assert main(["publish", "core", str(path), "--dry-run", "--lock", str(missing)]) == 2
+    assert run_cli(tmp_path, [path], "--dry-run", "--lock", str(missing)) == 2
     assert "no lockfile" in caplog.text
