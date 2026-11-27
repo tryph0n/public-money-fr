@@ -9,10 +9,11 @@ never names a project. The shared tables register the same way.
 reads those files back and checks them before a publish.
 """
 
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from importlib.metadata import entry_points
 from pathlib import Path
+from typing import Protocol
 
 import pandas as pd
 import pandera.pandas as pandera_pd
@@ -38,7 +39,13 @@ class BuiltTable:
 
     frame: pd.DataFrame
     #: Change notes by source id; see `write_table`.
-    changes: Mapping[str, str] = field(default_factory=dict)
+    changes: Mapping[str, str]
+
+
+class BuildFunction(Protocol):
+    """A function that makes a table from the local files of its sources."""
+
+    def __call__(self, files: Mapping[str, list[Path]], /) -> BuiltTable: ...
 
 
 @dataclass(frozen=True)
@@ -50,7 +57,7 @@ class Builder:
     dataset: str
     source_ids: tuple[str, ...]
     #: Gets the local files of each source (by source id, in the order of the manifest).
-    build: Callable[[Mapping[str, list[Path]]], BuiltTable]
+    build: BuildFunction
     #: Schema and key of a project table; both None for a shared table.
     schema: pandera_pd.DataFrameSchema | None = None
     key: tuple[str, ...] | None = None
