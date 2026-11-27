@@ -41,9 +41,9 @@ only its card (`README.md`) and `.gitattributes`.
 | [`sam-bot/public-money-security`](https://huggingface.co/datasets/sam-bot/public-money-security) | No |
 | [`sam-bot/public-money-election`](https://huggingface.co/datasets/sam-bot/public-money-election) | No |
 
-Publishing: `uv run python -m core.cli publish DATASET TABLE.parquet... [--dry-run]` uploads
-tables written by `write_table` to the dataset `DATASET` (core, finance, security or election)
-in one commit, with a card generated from the manifest (`core/publish/publisher.py`,
+Publishing: `uv run python -m core publish [DATASET ...] [--dry-run]` uploads the built tables
+of each named dataset (core, finance, security or election; all four if none is named), read
+from `data/build/<dataset>/*.parquet` (`--build-dir`), in one commit for each dataset, with a card generated from the manifest (`core/publish/publisher.py`,
 `core/publish/card.py`). A publish never deletes a file. If the dataset holds a table file
 (`data/*.parquet`) that the publish does not hold, it stops before any upload with exit code 2
 and names the file, so a publish gives every table of the dataset; other files, for example one
@@ -59,7 +59,9 @@ did not change. A file changed by hand but still present is not detected. `--dry
 files and the card and makes no network call; it does not read the dataset, so it shows neither
 a refusal nor an unchanged hash. A network or Hub error ends the command with the error of the
 library and a non-zero exit code. A real run reads the token from the `HF_TOKEN` environment
-variable only; it is a GitHub Actions secret.
+variable only; it is a GitHub Actions secret. A dataset with no registered builder is skipped
+with a notice, so the command goes on. There is no filter by table: a publish gives every table
+of the dataset.
 
 A publish, the dry run included, also reads the lockfile (`--lock`, `sources.lock.json` by
 default) and stops with exit code 2 when a pinned file of an input changed after its date of
@@ -83,14 +85,31 @@ Run the application locally: `uv run streamlit run app/Home.py`, then open
 
 ### Fetch the sources
 
-`uv run python -m core.cli fetch [source id ...]` fetches the sources of the manifest
-(`core/sources/`) into `data/raw/<source id>/` (git-ignored) and pins each file in
-`sources.lock.json` (size and SHA-256), which is committed. A file that the lockfile lists and
-whose bytes still match is not fetched again. `--offline` uses the cache only; `--force` fetches
-again. Resets and server errors are retried with backoff. A refusal (HTTP 401, 403 or 429, or a
-web page where data was asked for) stops the run with an error that names the host, with no
-retry. A source of kind `manual` is never downloaded: put the file in `data/manual/` (or in
-`data/raw/<source id>/`); it is copied and checked against the SHA-256 of the manifest.
+The command line is `uv run python -m core COMMAND` (`core/cli.py`); the page "Commands" of the
+docs gives the help of each command, generated from the parser. Four commands, run in this
+order:
+
+- `fetch [source id ...]` fetches the sources of the manifest
+  (`core/sources/`) into `data/raw/<source id>/` (git-ignored) and pins each file in
+  `sources.lock.json` (size and SHA-256), which is committed. A file that the lockfile lists and
+  whose bytes still match is not fetched again. `--offline` uses the cache only; `--force` fetches
+  again. Resets and server errors are retried with backoff. A refusal (HTTP 401, 403 or 429, or a
+  web page where data was asked for) stops the run with an error that names the host, with no
+  retry. A source of kind `manual` is never downloaded: put the file in `data/manual/` (or in
+  `data/raw/<source id>/`); it is copied and checked against the SHA-256 of the manifest.
+- `build [table or dataset ...]` runs the registered table builders on the raw cache and writes
+  `data/build/<dataset>/<table>.parquet` (`--build-dir`). A project registers builders through the
+  entry point group `public_money_fr.builders`; with none registered, the command does nothing
+  and exits 0.
+- `validate [dataset ...]` reads the files of the build folders back and checks them against the
+  schemas, the builders and the manifest; each problem is one line that names the file.
+- `publish`: see Publishing above.
+
+Exit codes: 0 on success (a command with nothing to do included); 1 when a source cannot be
+fetched, a builder fails, or a real `publish` finds `HF_TOKEN` unset; 2 for a bad argument or an
+unknown name, an invalid manifest, a missing lockfile, a table file that `validate` refuses, or a
+publish that stops (a file that is not Parquet, two files for one table, a table that the dataset
+holds and the publish does not, a stale date of last update).
 
 ### Committed rows of manual sources
 

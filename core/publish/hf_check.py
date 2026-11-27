@@ -53,9 +53,14 @@ class HubApi(Protocol):
     ) -> object: ...
 
 
+def repo_id(dataset: str) -> str:
+    """Returns the repository identifier of a dataset, for example `sam-bot/public-money-core`."""
+    return f"{NAMESPACE}/public-money-{dataset}"
+
+
 def repo_ids() -> list[str]:
     """Returns the repository identifiers of the four datasets."""
-    return [f"{NAMESPACE}/public-money-{name}" for name in DATASET_NAMES]
+    return [repo_id(name) for name in DATASET_NAMES]
 
 
 def build_card(repo_id: str) -> str:

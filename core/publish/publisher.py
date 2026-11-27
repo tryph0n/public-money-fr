@@ -31,9 +31,10 @@ import pyarrow.parquet as pq
 from huggingface_hub import CommitOperationAdd, HfApi
 
 from core.fetch.lockfile import Lockfile
+from core.publish import hf_check
 from core.publish.card import build_card
 from core.publish.freshness import check_last_update
-from core.publish.hf_check import CARD_PATH, DATASET_NAMES, NAMESPACE
+from core.publish.hf_check import CARD_PATH, DATASET_NAMES
 from core.sources.manifest import Source
 from core.tables.writer import read_metadata
 
@@ -93,7 +94,7 @@ def repo_id_of(dataset: str) -> str:
     """
     if dataset not in DATASET_NAMES:
         raise PublishError(f"unknown dataset {dataset!r}; known: {', '.join(DATASET_NAMES)}")
-    return f"{NAMESPACE}/public-money-{dataset}"
+    return hf_check.repo_id(dataset)
 
 
 def _count(number: int, noun: str) -> str:

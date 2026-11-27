@@ -1,4 +1,15 @@
-"""Command line of the project: `uv run python -m core fetch`."""
+"""Command line of the project: `uv run python -m core COMMAND`.
+
+Commands: `fetch`, `build`, `validate` and `publish`. Exit codes:
+
+- 0: success; a command with nothing to do (no builder registered) also exits 0.
+- 1: a source could not be fetched, a builder failed, or `publish` needs `HF_TOKEN` and finds
+  it unset (a real run only; the dry run needs no token).
+- 2: a bad argument or an unknown name, an invalid manifest, a missing lockfile, a table file
+  that `validate` refuses, or a publish that stops (a table file that is not Parquet, two files
+  for one table, a table that the dataset holds and the publish does not, a stale date of last
+  update, a card that cannot state a licence). Nothing is uploaded.
+"""
 
 import argparse
 import logging
@@ -48,10 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
     fetch.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
     fetch.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
     publish = commands.add_parser(
-        "publish", help="publish Parquet tables to a Hugging Face dataset"
+        "publish", help="publish the built tables of datasets to Hugging Face"
     )
-    publish.add_argument("dataset", choices=DATASET_NAMES)
-    publish.add_argument("tables", nargs="+", type=Path, help="Parquet files from write_table")
+    publish.add_argument("datasets", nargs="*", help="dataset names; all four if omitted")
+    publish.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
     publish.add_argument(
         "--dry-run",
         action="store_true",
@@ -156,6 +167,32 @@ def _validate(
     return 2 if problems else 0
 
 
+def _publish(
+    args: argparse.Namespace, builders: Sequence[Builder], manifest: Mapping[str, Source]
+) -> int:
+    """Run the `publish` command: one call for each dataset, with all its built tables."""
+    unknown = [name for name in args.datasets if name not in DATASET_NAMES]
+    if unknown:
+        logger.error("unknown dataset: %s; known: %s", ", ".join(unknown), ", ".join(DATASET_NAMES))
+        return 2
+    if not args.lock.is_file():
+        logger.error("no lockfile at %s; run the fetch first or give --lock", args.lock)
+        return 2
+    lock = Lockfile.load(args.lock)
+    code = 0
+    for dataset in args.datasets or DATASET_NAMES:
+        if not any(builder.dataset == dataset for builder in builders):
+            print(f"{dataset}: no builder registered, skipped")
+            continue
+        paths = sorted((args.build_dir / dataset).glob("*.parquet"))
+        try:
+            code = max(code, run(dataset, paths, manifest, lock, dry_run=args.dry_run))
+        except (PublishError, TableError, CardError, StaleDateError) as error:
+            logger.error("%s", error)
+            code = 2
+    return code
+
+
 def main(argv: Sequence[str] | None = None, builders: Sequence[Builder] | None = None) -> int:
     """Run the command line.
 
@@ -164,8 +201,7 @@ def main(argv: Sequence[str] | None = None, builders: Sequence[Builder] | None =
         builders: The table builders; those that installed packages declare if omitted.
 
     Returns:
-        0 on success, 1 if a source could not be fetched or a builder failed, 2 on a bad
-        argument, an invalid manifest or a table file that `validate` refuses.
+        The exit code, listed in the module docstring.
     """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args(argv)
@@ -174,7 +210,7 @@ def main(argv: Sequence[str] | None = None, builders: Sequence[Builder] | None =
     except ManifestError as error:
         logger.error("%s", error)
         return 2
-    if args.command in ("build", "validate", "extract"):
+    if args.command != "fetch":
         try:
             registered = load_builders() if builders is None else list(builders)
             check_builders(registered)
@@ -185,17 +221,9 @@ def main(argv: Sequence[str] | None = None, builders: Sequence[Builder] | None =
             return _build(args, registered, manifest)
         if args.command == "extract":
             return _extract(args, registered, manifest)
-        return _validate(args, registered, manifest)
-    if args.command == "publish":
-        if not args.lock.is_file():
-            logger.error("no lockfile at %s; run the fetch first or give --lock", args.lock)
-            return 2
-        try:
-            lock = Lockfile.load(args.lock)
-            return run(args.dataset, args.tables, manifest, lock, dry_run=args.dry_run)
-        except (PublishError, TableError, CardError, StaleDateError) as error:
-            logger.error("%s", error)
-            return 2
+        if args.command == "validate":
+            return _validate(args, registered, manifest)
+        return _publish(args, registered, manifest)
     unknown = [source_id for source_id in args.source_ids if source_id not in manifest]
     if unknown:
         logger.error("unknown source id: %s", ", ".join(unknown))
