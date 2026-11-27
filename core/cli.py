@@ -1,9 +1,9 @@
-"""Command line of the project: `uv run python -m core.cli fetch`."""
+"""Command line of the project: `uv run python -m core fetch`."""
 
 import argparse
 import logging
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from core.fetch.fetcher import (
@@ -18,7 +18,17 @@ from core.publish.card import CardError
 from core.publish.freshness import StaleDateError
 from core.publish.hf_check import DATASET_NAMES
 from core.publish.publisher import PublishError, run
-from core.sources.manifest import MANIFEST_DIR, ManifestError, load_manifest
+from core.sources.manifest import MANIFEST_DIR, ManifestError, Source, load_manifest
+from core.tables.build import (
+    DEFAULT_BUILD_DIR,
+    Builder,
+    BuildError,
+    build_tables,
+    check_builders,
+    load_builders,
+    select_builders,
+    validate_build,
+)
 from core.tables.writer import TableError
 
 logger = logging.getLogger(__name__)
@@ -26,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 def build_parser() -> argparse.ArgumentParser:
     """Return the argument parser of the command line."""
-    parser = argparse.ArgumentParser(prog="core.cli")
+    parser = argparse.ArgumentParser(prog="core")
     commands = parser.add_subparsers(dest="command", required=True)
     fetch = commands.add_parser("fetch", help="fetch sources into the raw cache")
     fetch.add_argument("source_ids", nargs="*", help="manifest ids; all sources if omitted")
@@ -49,18 +59,69 @@ def build_parser() -> argparse.ArgumentParser:
     )
     publish.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
     publish.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
+    build = commands.add_parser(
+        "build", help="run the table builders and write their Parquet files"
+    )
+    build.add_argument("targets", nargs="*", help="table or dataset names; all builders if omitted")
+    build.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
+    build.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
+    build.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
+    build.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
+    validate = commands.add_parser(
+        "validate", help="check the Parquet files of the build folders before a publish"
+    )
+    validate.add_argument("datasets", nargs="*", help="dataset names; all four if omitted")
+    validate.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
+    validate.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _build(args: argparse.Namespace, builders: Sequence[Builder]) -> int:
+    """Run the `build` command."""
+    try:
+        chosen = select_builders(builders, args.targets)
+    except BuildError as error:
+        logger.error("%s", error)
+        return 2
+    if not chosen:
+        print("no builder registered, nothing built")
+        return 0
+    try:
+        written = build_tables(chosen, Lockfile.load(args.lock), args.raw_dir, args.build_dir)
+    except BuildError as error:
+        logger.error("%s", error)
+        return 1
+    for path in written:
+        print(f"built {path}")
+    return 0
+
+
+def _validate(
+    args: argparse.Namespace, builders: Sequence[Builder], manifest: Mapping[str, Source]
+) -> int:
+    """Run the `validate` command."""
+    try:
+        problems = validate_build(builders, args.datasets, manifest, args.build_dir)
+    except BuildError as error:
+        logger.error("%s", error)
+        return 2
+    for problem in problems:
+        logger.error("%s", problem)
+    if not problems:
+        print("all table files are valid")
+    return 2 if problems else 0
+
+
+def main(argv: Sequence[str] | None = None, builders: Sequence[Builder] | None = None) -> int:
     """Run the command line.
 
     Args:
         argv: The arguments; the process arguments if omitted.
+        builders: The table builders; those that installed packages declare if omitted.
 
     Returns:
-        0 on success, 1 if a source could not be fetched, 2 on a bad argument
-        or an invalid manifest.
+        0 on success, 1 if a source could not be fetched or a builder failed, 2 on a bad
+        argument, an invalid manifest or a table file that `validate` refuses.
     """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args(argv)
@@ -69,6 +130,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ManifestError as error:
         logger.error("%s", error)
         return 2
+    if args.command in ("build", "validate"):
+        try:
+            registered = load_builders() if builders is None else list(builders)
+            check_builders(registered)
+        except BuildError as error:
+            logger.error("%s", error)
+            return 2
+        if args.command == "build":
+            return _build(args, registered)
+        return _validate(args, registered, manifest)
     if args.command == "publish":
         if not args.lock.is_file():
             logger.error("no lockfile at %s; run the fetch first or give --lock", args.lock)

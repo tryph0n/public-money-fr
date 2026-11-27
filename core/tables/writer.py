@@ -293,9 +293,12 @@ def read_metadata(path: Path) -> TableMetadata:
         The metadata stored in the file.
 
     Raises:
-        TableError: If the file has no metadata of this project.
+        TableError: If the file is not Parquet or has no metadata of this project.
     """
-    raw = (pq.read_schema(path).metadata or {}).get(METADATA_KEY)
+    try:
+        raw = (pq.read_schema(path).metadata or {}).get(METADATA_KEY)
+    except (pa.ArrowException, OSError) as error:
+        raise TableError(f"{path} is not a readable Parquet file: {error}") from error
     if raw is None:
         raise TableError(f"{path} has no table metadata; it was not written by write_table")
     data = json.loads(raw)
