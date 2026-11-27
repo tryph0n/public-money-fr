@@ -29,11 +29,11 @@ class AmountError(ValueError):
 class ScientificCell:
     """A cell written in scientific notation, which holds an approximate amount."""
 
-    #: The line of the cell, counting LF bytes, the header being line 1.
+    #: The line of the cell, counting LF bytes from the first line of the file.
     line: int
     #: The position of the column, counting from 0.
     column_index: int
-    #: The name of the column, from the header.
+    #: The name of the column, from the header; empty if the header does not name it.
     column: str
     #: The text of the cell, for example `1,07584E+11`.
     text: str
@@ -90,17 +90,20 @@ def normalise_code(text: str) -> str:
     return match.group(1) if match else stripped
 
 
-def _records(text: str) -> Iterator[tuple[int, list[str]]]:
-    """Yield (first line, cells) for each record, counting LF bytes from 1."""
+def _records(text: str, header_line: int) -> Iterator[tuple[int, list[str]]]:
+    """Yield (first line, cells) for each record, counting LF bytes from 1.
+
+    The delimiter is detected on the header line, as `read_table` does.
+    """
     lines = list(io.StringIO(text, newline="\n"))
-    reader = csv.reader(lines, delimiter=detect_delimiter(lines[0]))
+    reader = csv.reader(lines, delimiter=detect_delimiter(lines[header_line - 1]))
     previous = 0
     for cells in reader:
         yield previous + 1, cells
         previous = reader.line_num
 
 
-def find_scientific_cells(source: bytes | Path) -> list[ScientificCell]:
+def find_scientific_cells(source: bytes | Path, *, header_line: int = 1) -> list[ScientificCell]:
     """List every cell of a file that is in scientific notation.
 
     The 2023 files write an amount in at most 11 characters, so a large amount is rounded to
@@ -109,17 +112,28 @@ def find_scientific_cells(source: bytes | Path) -> list[ScientificCell]:
 
     Args:
         source: The bytes of the file, or the path to read them from.
+        header_line: The line that holds the column names, counting from 1, as in
+            `read_table`. The lines before it (the preamble) hold no amount and are not
+            scanned.
 
     Returns:
-        One entry per cell, in file order. The line counts LF bytes and the header is line 1,
-        so a bare CR in a label does not shift it.
+        One entry per cell, in file order. The line counts LF bytes from the first line of
+        the file, so a bare CR in a label does not shift it and the line points to the same
+        line in the raw file whatever the header line is. A cell in a column that the header
+        does not name has an empty column name.
     """
     text = normalise_line_ends(read_text(source))
-    records = _records(text)
-    _, header = next(records)
-    return [
-        ScientificCell(line, index, header[index], cell)
-        for line, cells in records
-        for index, cell in enumerate(cells)
-        if is_scientific(cell)
-    ]
+    header: list[str] = []
+    found: list[ScientificCell] = []
+    for line, cells in _records(text, header_line):
+        if line < header_line:
+            continue
+        if line == header_line:
+            header = cells
+            continue
+        found.extend(
+            ScientificCell(line, index, header[index] if index < len(header) else "", cell)
+            for index, cell in enumerate(cells)
+            if is_scientific(cell)
+        )
+    return found
