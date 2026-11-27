@@ -1,6 +1,8 @@
 name: data-refresh
 
 on:
+  schedule:
+    - cron: "17 5 1 * *"
   workflow_dispatch:
     inputs:
       force_failure:
@@ -8,10 +10,57 @@ on:
         type: boolean
         default: false
 
-permissions: {}
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: hf-publish
+  cancel-in-progress: false
 
 jobs:
-  placeholder:
+  refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOG_DIR: ${{ runner.temp }}/logs
     steps:
-      - run: echo "The data refresh workflow is not ready yet."
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked --no-dev
+      - run: mkdir -p "$LOG_DIR" && cp sources.lock.json "$RUNNER_TEMP/committed.lock.json"
+      - id: forced
+        if: ${{ inputs.force_failure }}
+        run: |
+          echo "ERROR forced failure on https://test.invalid" 2>&1 | tee "$LOG_DIR/forced.log"
+          exit 1
+      - id: fetch
+        run: uv run python -m core fetch --skip-manual 2>&1 | tee "$LOG_DIR/fetch.log"
+      - id: pins
+        run: uv run python -m core.fetch.pins "$RUNNER_TEMP/committed.lock.json" sources.lock.json 2>&1 | tee "$LOG_DIR/pins.log"
+      - id: build
+        run: uv run python -m core build 2>&1 | tee "$LOG_DIR/build.log"
+      - id: validate
+        run: uv run python -m core validate 2>&1 | tee "$LOG_DIR/validate.log"
+      - id: publish
+        run: uv run python -m core publish 2>&1 | tee "$LOG_DIR/publish.log"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      - name: Report the failure
+        if: ${{ failure() }}
+        run: |
+          failed=setup
+          for step in forced fetch pins build validate publish; do
+            outcome="$(printf '%s' "$OUTCOMES" | jq -r --arg s "$step" '.[$s].outcome // empty')"
+            if [ "$outcome" = failure ]; then failed="$step"; break; fi
+          done
+          FAILED_STEP="$failed" bash .github/scripts/report-refresh-failure.sh
+        env:
+          OUTCOMES: ${{ toJSON(steps) }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -56,6 +56,11 @@ def build_parser() -> argparse.ArgumentParser:
     fetch.add_argument("source_ids", nargs="*", help="manifest ids; all sources if omitted")
     fetch.add_argument("--offline", action="store_true", help="use the cache only")
     fetch.add_argument("--force", action="store_true", help="fetch files the cache already has")
+    fetch.add_argument(
+        "--skip-manual",
+        action="store_true",
+        help="skip sources of kind manual with a notice (for a machine with no copy of the file)",
+    )
     fetch.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
     fetch.add_argument("--manual-dir", type=Path, default=DEFAULT_MANUAL_DIR)
     fetch.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
@@ -250,6 +255,7 @@ def main(argv: Sequence[str] | None = None, builders: Sequence[Builder] | None =
         lock_path=args.lock,
         offline=args.offline,
         force=args.force,
+        skip_manual=args.skip_manual,
     )
     try:
         files = fetcher.fetch_all(sources)

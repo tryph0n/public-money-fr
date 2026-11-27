@@ -212,3 +212,14 @@ def test_manual_file_missing_says_where_to_put_it(server: FakeServer, tmp_path: 
     source = load_manifest(MANIFEST_DIR)["stability-programme-france-2016"]
     with pytest.raises(FetchError, match="placed by hand is missing"):
         fetcher(server, tmp_path).fetch(source)
+
+
+def test_skip_manual_names_the_source_and_keeps_the_lockfile(
+    server: FakeServer, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    source = load_manifest(MANIFEST_DIR)[MANUAL_ID]
+    skipping = fetcher(server, tmp_path, skip_manual=True)
+    assert skipping.fetch(source) == []
+    assert MANUAL_ID in caplog.text
+    assert MANUAL_ID not in skipping.lock.entries
+    assert not (tmp_path / "raw" / MANUAL_ID).exists()
