@@ -1,14 +1,16 @@
 """Command line of the project: `uv run python -m core COMMAND`.
 
-Commands: `fetch`, `build`, `validate` and `publish`. Exit codes:
+Commands: `fetch`, `build`, `extract`, `validate` and `publish`. Exit codes:
 
 - 0: success; a command with nothing to do (no builder registered) also exits 0.
-- 1: a source could not be fetched, a builder failed, or `publish` needs `HF_TOKEN` and finds
+- 1: a source could not be fetched, a builder failed, an extraction was refused (raw file
+  missing or changed, rows that break the schema), or `publish` needs `HF_TOKEN` and finds
   it unset (a real run only; the dry run needs no token).
-- 2: a bad argument or an unknown name, an invalid manifest, a missing lockfile, a table file
-  that `validate` refuses, or a publish that stops (a table file that is not Parquet, two files
-  for one table, a table that the dataset holds and the publish does not, a stale date of last
-  update, a card that cannot state a licence). Nothing is uploaded.
+- 2: a bad argument or an unknown name (a table or a parser key that `extract` cannot find),
+  an invalid manifest, a missing lockfile, a table file that `validate` refuses, or a publish
+  that stops (a table file that is not Parquet, two files for one table, a table that the
+  dataset holds and the publish does not, a stale date of last update, a card that cannot
+  state a licence). Nothing is uploaded.
 """
 
 import argparse
@@ -40,6 +42,7 @@ from core.tables.build import (
     select_builders,
     validate_build,
 )
+from core.tables.manual import DEFAULT_ROWS_DIR, ManualRowsError, extract_rows
 from core.tables.writer import TableError
 
 logger = logging.getLogger(__name__)
@@ -78,6 +81,15 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
     build.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
     build.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
+    build.add_argument("--rows-dir", type=Path, default=DEFAULT_ROWS_DIR)
+    extract = commands.add_parser(
+        "extract",
+        help="write the committed rows of manual sources from their raw files",
+    )
+    extract.add_argument("targets", nargs="*", help="table names; all manual tables if omitted")
+    extract.add_argument("--manual-dir", type=Path, default=DEFAULT_MANUAL_DIR)
+    extract.add_argument("--rows-dir", type=Path, default=DEFAULT_ROWS_DIR)
+    extract.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
     validate = commands.add_parser(
         "validate", help="check the Parquet files of the build folders before a publish"
     )
@@ -87,7 +99,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _build(args: argparse.Namespace, builders: Sequence[Builder]) -> int:
+def _build(
+    args: argparse.Namespace, builders: Sequence[Builder], manifest: Mapping[str, Source]
+) -> int:
     """Run the `build` command."""
     try:
         chosen = select_builders(builders, args.targets)
@@ -98,12 +112,57 @@ def _build(args: argparse.Namespace, builders: Sequence[Builder]) -> int:
         print("no builder registered, nothing built")
         return 0
     try:
-        written = build_tables(chosen, Lockfile.load(args.lock), args.raw_dir, args.build_dir)
+        written = build_tables(
+            chosen, Lockfile.load(args.lock), args.raw_dir, args.build_dir, manifest, args.rows_dir
+        )
     except BuildError as error:
         logger.error("%s", error)
         return 1
     for path in written:
         print(f"built {path}")
+    return 0
+
+
+def _extract(
+    args: argparse.Namespace, builders: Sequence[Builder], manifest: Mapping[str, Source]
+) -> int:
+    """Run the `extract` command."""
+    chosen = [
+        b for b in builders if b.manual_parsers and (not args.targets or b.table in args.targets)
+    ]
+    unknown = set(args.targets) - {b.table for b in chosen}
+    if unknown:
+        logger.error("no manual source to extract for: %s", ", ".join(sorted(unknown)))
+        return 2
+    for builder in chosen:
+        missing = [
+            source_id
+            for source_id in builder.manual_parsers
+            if source_id not in manifest or manifest[source_id].access["kind"] != "manual"
+        ]
+        if missing:
+            logger.error(
+                "table %r: parser key %s is not a manual source of the manifest",
+                builder.table,
+                ", ".join(missing),
+            )
+            return 2
+    try:
+        for builder in chosen:
+            for source_id, parse in builder.manual_parsers.items():
+                path = extract_rows(
+                    parse,
+                    manifest[source_id],
+                    builder.table,
+                    args.rows_dir,
+                    args.manual_dir,
+                    schema=builder.schema,
+                    key=builder.key,
+                )
+                print(f"extracted {path}")
+    except (ManualRowsError, TableError) as error:
+        logger.error("%s", error)
+        return 1
     return 0
 
 
@@ -174,7 +233,9 @@ def main(argv: Sequence[str] | None = None, builders: Sequence[Builder] | None =
             logger.error("%s", error)
             return 2
         if args.command == "build":
-            return _build(args, registered)
+            return _build(args, registered, manifest)
+        if args.command == "extract":
+            return _extract(args, registered, manifest)
         if args.command == "validate":
             return _validate(args, registered, manifest)
         return _publish(args, registered, manifest)

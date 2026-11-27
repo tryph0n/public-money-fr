@@ -10,7 +10,7 @@ reads those files back and checks them before a publish.
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Protocol
@@ -23,6 +23,13 @@ import pyarrow.parquet as pq
 from core.fetch.lockfile import Lockfile
 from core.publish.hf_check import DATASET_NAMES
 from core.sources.manifest import Source
+from core.tables.manual import (
+    DEFAULT_ROWS_DIR,
+    ManualRowsError,
+    RowParser,
+    check_header,
+    rows_path,
+)
 from core.tables.writer import TableError, read_metadata, validate_table, write_table
 
 BUILDER_GROUP = "public_money_fr.builders"
@@ -61,6 +68,8 @@ class Builder:
     #: Schema and key of a project table; both None for a shared table.
     schema: pandera_pd.DataFrameSchema | None = None
     key: tuple[str, ...] | None = None
+    #: Parser of each manual source that the table reads, by source id; `extract` runs it.
+    manual_parsers: Mapping[str, RowParser] = field(default_factory=dict)
 
 
 def load_builders() -> list[Builder]:
@@ -143,10 +152,15 @@ def build_tables(
     lock: Lockfile,
     raw_dir: Path,
     build_dir: Path,
+    manifest: Mapping[str, Source],
+    rows_dir: Path = DEFAULT_ROWS_DIR,
 ) -> list[Path]:
     """Run the builders and write their tables.
 
-    All sources are checked before the first builder runs. A table is written to a
+    All sources are checked before the first builder runs. For a source of kind `manual`, the
+    builder gets the committed rows file of its table in place of the raw file, whether or
+    not the raw file is on the machine, so that a local build and a runner build agree; it
+    reads the file with `core.tables.manual.read_rows`. A table is written to a
     temporary file and moved into place, so a failed run leaves no partial file.
 
     Args:
@@ -154,18 +168,31 @@ def build_tables(
         lock: The lockfile that lists the files of the raw cache.
         raw_dir: The raw cache.
         build_dir: The build folder; one sub-folder for each dataset.
+        manifest: The sources by id.
+        rows_dir: The folder of the committed rows of manual sources.
 
     Returns:
         The files written.
 
     Raises:
         BuildError: If a source has no file in the raw cache (the message names it and says
-            to run `fetch`), or a builder fails (the message names the table).
+            to run `fetch`), the committed rows of a manual source are missing or come from
+            another file than the one the manifest pins (the message names the source and
+            both checksums), or a builder fails (the message names the table).
     """
     inputs: dict[tuple[str, str], dict[str, list[Path]]] = {}
     for builder in builders:
         files: dict[str, list[Path]] = {}
         for source_id in builder.source_ids:
+            source = manifest.get(source_id)
+            if source is not None and source.access["kind"] == "manual":
+                committed = rows_path(rows_dir, source_id, builder.table)
+                try:
+                    check_header(committed, source, builder.table)
+                except ManualRowsError as error:
+                    raise BuildError(f"table {builder.table!r}: {error}") from error
+                files[source_id] = [committed]
+                continue
             found = _raw_files(source_id, lock, raw_dir)
             if found is None:
                 raise BuildError(
