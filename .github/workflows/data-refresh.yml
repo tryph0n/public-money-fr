@@ -22,8 +22,6 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      LOG_DIR: ${{ runner.temp }}/logs
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -32,7 +30,10 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked --no-dev
-      - run: mkdir -p "$LOG_DIR" && cp sources.lock.json "$RUNNER_TEMP/committed.lock.json"
+      - run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          echo "LOG_DIR=$RUNNER_TEMP/logs" >> "$GITHUB_ENV"
+          cp sources.lock.json "$RUNNER_TEMP/committed.lock.json"
       - id: forced
         if: ${{ inputs.force_failure }}
         run: |
