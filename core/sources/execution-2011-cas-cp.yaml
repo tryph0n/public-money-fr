@@ -1,0 +1,36 @@
+id: execution-2011-cas-cp
+title: Exécution du budget de l'État 2011, budget des comptes d'affectation spéciale en crédits de paiement (CP) (PLR 2011)
+producer: Direction du budget (Ministères économiques et financiers), through data.economie.gouv.fr
+access:
+  kind: records
+  portal: data.economie.gouv.fr
+  dataset_id: execution-2011-du-budget-des-comptes-daffectation-speciale-en-cp
+licence:
+  name: Licence Ouverte v2.0 (Etalab)
+  url: https://data.economie.gouv.fr/explore/dataset/execution-2011-du-budget-des-comptes-daffectation-speciale-en-cp/information/
+  read_on: 2026-11-27
+last_update:
+  date: 2018-12-13
+  url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/execution-2011-du-budget-des-comptes-daffectation-speciale-en-cp
+  where: Field metas.default.modified of the dataset, 2018-12-13T20:51:48+00:00; the portal date of 13 December 2018 (see the traps)
+  read_on: 2026-11-27
+  files:
+    records: 90a1500bb8015006bdc6b663b9e0b14ade9fd0ec7e0d6b916b4e3111ae314dec
+grain: 'One record per programme, action and title group, with the payment credits (CP) executed in 2011 (special accounts of the CAS kind (comptes d''affectation speciale)); shape: wide by title'
+years:
+  first: 2011
+  last: 2011
+format: Records served by the portal API (JSON), 45 records
+encoding: UTF-8
+generation: G1
+traps:
+- 'The records hold no year field: the year 2011 is read in the dataset title (field metas.default.title: ''(PLR 2011)''). The id gives the same year.'
+- On 26 November 2026, 254 of the 637 datasets of data.economie.gouv.fr have metas.default.modified on 13 December 2018, between 20:21 and 22:10 UTC, which looks like a date of the portal (a move), not a date that the producer states. It is used here because this dataset has no other date (no attachment, and metas.default.data_processed is the day the portal last processed the records); it is later than the end of the executed year.
+- The portal has no execution dataset of the annex budgets for 2010 to 2012 (no id or title of these years names them), so the annex budgets of these years are missing from the sources.
+- 'Wide shape: one record per programme and action, with one column per title (t1 to t7) and total_general (the sum of the title cells). An empty amount cell is null, not 0.'
+- The dataset holds the special accounts of the CAS kind (comptes d'affectation speciale) only.
+- The records give a mission label and no ministry.
+- 'The columns t4 are absent (not null): no record has an amount in these titles.'
+- 'The dataset has 45 records, the AE dataset of the same year 46: a programme or action is missing from one of the two.'
+status: verified
+verified_on: 2026-11-27

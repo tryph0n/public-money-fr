@@ -247,14 +247,13 @@ def test_load_manifest_names_the_failing_file(tmp_path: Path) -> None:
         load_manifest(tmp_path)
 
 
-def test_shipped_manifest_has_the_five_entries() -> None:
+def test_shipped_manifest_has_the_five_kinds_of_access() -> None:
     sources = load_manifest(MANIFEST_DIR)
     kinds = {source.access["kind"] for source in sources.values()}
     assert kinds == {"records", "attachments", "data_gouv", "archive", "manual"}
-    assert len(sources) == 5
     for source in sources.values():
         assert source.licence.url.startswith("https://")
-        assert source.licence.read_on == datetime.date(2026, 11, 26)
+        assert source.licence.read_on >= datetime.date(2026, 11, 26)
 
 
 def test_shipped_last_update_dates_are_the_producer_dates() -> None:
