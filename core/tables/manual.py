@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ROWS_DIR = Path(__file__).parents[1] / "sources" / "rows"
 
-#: Parser of a manual source: gets its raw files, returns the rows of one table.
+# A parser of a manual source gets its raw files and returns the rows of one table.
 RowParser = Callable[[list[Path]], pd.DataFrame]
 
 
