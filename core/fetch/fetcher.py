@@ -48,6 +48,7 @@ class Fetcher:
         client: HttpClient | None = None,
         offline: bool = False,
         force: bool = False,
+        skip_manual: bool = False,
         base_urls: dict[str, str] | None = None,
         today: Callable[[], str] | None = None,
     ) -> None:
@@ -60,6 +61,8 @@ class Fetcher:
             client: The HTTP client; a default one if omitted.
             offline: Use the cache only; a missing file is an error and nothing is fetched.
             force: Fetch again the files that the cache already has.
+            skip_manual: Skip the sources of kind `manual` with a notice, for a machine that
+                has no copy of such a file; their lockfile entries stay as they are.
             base_urls: Base URL of a portal by portal name; see `adapters.download`.
             today: Gives the retrieval date; tests replace it.
         """
@@ -69,6 +72,7 @@ class Fetcher:
         self.client = client if client is not None else HttpClient()
         self.offline = offline
         self.force = force
+        self.skip_manual = skip_manual
         self._base_urls = base_urls if base_urls is not None else adapters.DEFAULT_BASE_URLS
         self._today = today if today is not None else today_iso
         self.lock = Lockfile.load(lock_path)
@@ -98,13 +102,18 @@ class Fetcher:
             source: The source.
 
         Returns:
-            One entry per file, in the order of the manifest.
+            One entry per file, in the order of the manifest; none for a skipped manual source.
 
         Raises:
             OfflineError: In offline mode, if a file is not in the cache.
             RefusalError: If a host refuses; the message names the host.
             FetchError: On any other failure, or if a manual file does not match its checksum.
         """
+        if self.skip_manual and source.access["kind"] == "manual":
+            logger.warning(
+                "%s: manual source skipped, no copy of its file on this machine", source.id
+            )
+            return []
         keys = adapters.file_keys(source)
         locked = self.lock.entries.get(source.id, {})
         missing = [key for key in keys if self.force or not self._is_cached(source, key, locked)]
