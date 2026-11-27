@@ -104,11 +104,21 @@ def test_issue_opens_when_the_log_folder_is_not_set(tmp_path: Path) -> None:
     assert "Step: setup" in text
 
 
-def test_a_very_long_error_line_is_posted_from_a_file(tmp_path: Path) -> None:
-    text, calls = run_script(tmp_path, b"ERROR " + b"x" * 300_000)
+def test_a_very_long_error_line_is_cut_and_posted_from_a_file(tmp_path: Path) -> None:
+    text, calls = run_script(tmp_path, b"ERROR start " + b"x" * 300_000)
     assert "issue create" in calls
     assert "--body-file" in calls
-    assert len(text) > 300_000
+    assert len(text) < 65_536
+    assert "ERROR start xxx" in text
+    assert "cut to 2000 characters" in text
+
+
+def test_a_cut_does_not_leave_part_of_a_token(tmp_path: Path) -> None:
+    token = "secret-value-123"
+    line = "ERROR " + "x" * 1992 + token + "y" * 100
+    text, _ = run_script(tmp_path, line.encode(), token=token)
+    assert "secret" not in text
+    assert "cut to 2000 characters" in text
 
 
 def test_a_null_byte_in_the_log_keeps_the_error_line(tmp_path: Path) -> None:

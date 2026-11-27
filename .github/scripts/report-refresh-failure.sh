@@ -15,6 +15,13 @@ if [ -n "${HF_TOKEN:-}" ]; then
   error_line="${error_line//"$HF_TOKEN"/***}"
 fi
 error_line="$(printf '%s' "$error_line" | sed -E 's/hf_[A-Za-z0-9]{10,}/***/g')"
+# GitHub refuses a body over 65,536 characters. Cut after the redaction, so that a cut cannot
+# leave half a token.
+cut_note=""
+if [ "${#error_line}" -gt 2000 ]; then
+  error_line="${error_line:0:2000}"
+  cut_note="The error line was cut to 2000 characters; read the log of the step for the rest."
+fi
 
 case "$FAILED_STEP" in
   fetch)
@@ -47,7 +54,7 @@ longest="$(printf '%s' "$details" | tr -c '`' '\n' | awk '{ if (length($0) > m) 
 fence="$(printf '`%.0s' $(seq 1 $((longest > 2 ? longest + 1 : 3))))"
 body_file="$(mktemp)"
 trap 'rm -f "$body_file"' EXIT
-printf '%s\n%s\n%s\n\nRun: %s\n\n%s\n' "$fence" "$details" "$fence" "$RUN_URL" "$advice" > "$body_file"
+printf '%s\n%s\n%s\n\nRun: %s\n\n%s\n%s\n' "$fence" "$details" "$fence" "$RUN_URL" "$advice" "$cut_note" > "$body_file"
 
 open="$(gh issue list --state open --author app/github-actions \
   --search "\"$title\" in:title" --json number,title \
