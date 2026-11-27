@@ -53,16 +53,29 @@ def _source_id() -> pa.Column:
     return _text("Manifest id of the source file of the row.")
 
 
-#: For each rule of the whole frame, the columns that it reads. The writer names them in the error.
-FRAME_CHECK_COLUMNS: dict[str, tuple[str, ...]] = {}
-
-
-def _frame_check(
+def frame_check(
     name: str, columns: tuple[str, ...], rule: Callable[[pd.DataFrame], Any]
 ) -> pa.Check:
-    """Build a rule of the whole frame and record the columns that it reads."""
-    FRAME_CHECK_COLUMNS[name] = columns
-    return pa.Check(rule, name=name)
+    """Build a rule of the whole frame and record the columns that it reads.
+
+    Args:
+        name: Name of the rule; the error message shows it.
+        columns: The columns that the rule reads.
+        rule: Function of the frame that gives a boolean or a boolean series.
+
+    Returns:
+        The rule, to pass in the `checks` of a pandera schema. The columns stay on the rule,
+        so two schemas can use one rule name without sharing columns.
+    """
+    check = pa.Check(rule, name=name)
+    check.columns = columns  # type: ignore[attr-defined]
+    return check
+
+
+def frame_check_columns(check: pa.Check) -> tuple[str, ...] | None:
+    """Return the columns that a rule built by `frame_check` reads, or None for another rule."""
+    columns: tuple[str, ...] | None = getattr(check, "columns", None)
+    return columns
 
 
 def _schema(
@@ -119,7 +132,7 @@ STATE_BUDGET_LINES = _schema(
         "source_id": _source_id(),
     },
     checks=[
-        _frame_check(
+        frame_check(
             "one_basis_for_each_year_and_stage",
             ("year", "stage", "basis"),
             lambda frame: frame.groupby(["year", "stage"])["basis"].nunique().le(1).all(),
@@ -264,17 +277,17 @@ PERFORMANCE_INDICATORS = _schema(
         "source_id": _source_id(),
     },
     checks=[
-        _frame_check(
+        frame_check(
             "target_value_filled_when_target_kind_is_numeric",
             ("target_kind", "target_value"),
             lambda frame: (frame["target_kind"] != "numeric") | frame["target_value"].notna(),
         ),
-        _frame_check(
+        frame_check(
             "target_value_null_when_target_kind_is_none",
             ("target_kind", "target_value"),
             lambda frame: (frame["target_kind"] != "none") | frame["target_value"].isna(),
         ),
-        _frame_check(
+        frame_check(
             "target_text_filled_when_target_kind_is_qualitative",
             ("target_kind", "target_text"),
             lambda frame: (frame["target_kind"] != "qualitative") | frame["target_text"].notna(),
@@ -332,12 +345,12 @@ FISCAL_COMMITMENTS = _schema(
         "source_id": _source_id(),
     },
     checks=[
-        _frame_check(
+        frame_check(
             "reference_filled_when_entry_method_is_hand",
             ("entry_method", "reference"),
             lambda frame: (frame["entry_method"] != "hand") | frame["reference"].notna(),
         ),
-        _frame_check(
+        frame_check(
             "reference_null_when_entry_method_is_file",
             ("entry_method", "reference"),
             lambda frame: (frame["entry_method"] != "file") | frame["reference"].isna(),

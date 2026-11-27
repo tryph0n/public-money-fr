@@ -1,7 +1,9 @@
-"""Write a shared table to Parquet after it passes its schema.
+"""Write a table to Parquet after it passes its schema.
 
 `write_table` validates the frame against the schema of the table, checks the key, and
 stores the source ids, the change notes, the build date and the commit in the file.
+A shared table takes its schema and key from `core.tables.schemas`; a project table passes
+its own schema and key, under a name that no shared table has.
 `read_metadata` reads them back without loading the rows.
 """
 
@@ -16,10 +18,11 @@ from typing import Any
 
 import pandas as pd
 import pandera.errors
+import pandera.pandas as pandera_pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from core.tables.schemas import FRAME_CHECK_COLUMNS, KEYS, SCHEMAS
+from core.tables.schemas import KEYS, SCHEMAS, frame_check_columns
 
 logger = logging.getLogger(__name__)
 
@@ -84,47 +87,87 @@ def _describe_failure(row: Any) -> str:
     return f"column {row.column!r}: {row.check} (failure case: {row.failure_case!r})"
 
 
-def _describe_frame_rule(check: str, cases: pd.DataFrame) -> str:
+def _describe_frame_rule(check: str, cases: pd.DataFrame, rule_columns: dict[str, str]) -> str:
     """Describe a failed rule of the whole frame: its columns and each bad row once."""
-    columns = ", ".join(FRAME_CHECK_COLUMNS.get(check, ()))
+    columns = rule_columns.get(check, "")
     rows = sorted(set(cases["index"].dropna()))
     where = f"rows {', '.join(str(row) for row in rows)}" if rows else "the frame as a whole"
     return f"rule {check} on columns ({columns}) fails for {where}"
 
 
-def _describe_failures(failure_cases: pd.DataFrame) -> list[str]:
+def _describe_failures(
+    failure_cases: pd.DataFrame, schema: pandera_pd.DataFrameSchema
+) -> list[str]:
     """Describe all failure cases: a line for each cell, a line for each frame-level rule."""
     is_frame_rule = (failure_cases["schema_context"] == "DataFrameSchema") & ~failure_cases[
         "check"
     ].isin(_COLUMN_PRESENCE_CHECKS)
+    rule_columns = {
+        check.name: ", ".join(columns)
+        for check in schema.checks
+        if check.name and (columns := frame_check_columns(check)) is not None
+    }
     lines = [_describe_failure(row) for row in failure_cases[~is_frame_rule].itertuples()]
     for check, cases in failure_cases[is_frame_rule].groupby("check", sort=False):
-        lines.append(_describe_frame_rule(str(check), cases))
+        lines.append(_describe_frame_rule(str(check), cases, rule_columns))
     return lines
 
 
-def validate_table(frame: pd.DataFrame, table: str) -> pd.DataFrame:
+def _resolve(
+    table: str,
+    schema: pandera_pd.DataFrameSchema | None,
+    key: tuple[str, ...] | None,
+) -> tuple[pandera_pd.DataFrameSchema, tuple[str, ...] | None]:
+    """Return the schema and key of a table: the shared ones, or the ones the caller gives."""
+    if schema is None:
+        if key is not None:
+            raise TableError(f"table {table!r}: a key needs a schema; a shared table has its own")
+        if table not in SCHEMAS:
+            raise TableError(
+                f"unknown table {table!r}; known tables: {', '.join(sorted(SCHEMAS))}; "
+                "a project table passes its schema and key"
+            )
+        return SCHEMAS[table], KEYS.get(table)
+    if table in SCHEMAS:
+        raise TableError(f"table {table!r} is a shared table; a project table needs another name")
+    if key is None:
+        raise TableError(f"table {table!r}: a project table needs a key")
+    unknown = [name for name in key if name not in schema.columns]
+    if unknown:
+        raise TableError(f"table {table!r}: key columns not in the schema: {', '.join(unknown)}")
+    return schema, key
+
+
+def validate_table(
+    frame: pd.DataFrame,
+    table: str,
+    *,
+    schema: pandera_pd.DataFrameSchema | None = None,
+    key: tuple[str, ...] | None = None,
+) -> pd.DataFrame:
     """Check a frame against the schema and the key of its table.
 
     Args:
         frame: The rows to check.
-        table: Name of the shared table.
+        table: Name of the table. A shared table keeps its schema and key; a project table
+            has a name that no shared table has.
+        schema: Schema of a project table; omit it for a shared table.
+        key: Columns of the key of a project table; required with `schema`.
 
     Returns:
         The frame, unchanged.
 
     Raises:
-        TableError: If the table is unknown, a column breaks the schema, or the key has
-            duplicates. A null counts as one key value.
+        TableError: If the table is unknown, a project table takes the name of a shared
+            table or has no key, a column breaks the schema, or the key has duplicates. A
+            null counts as one key value.
     """
-    if table not in SCHEMAS:
-        raise TableError(f"unknown table {table!r}; known tables: {', '.join(sorted(SCHEMAS))}")
+    schema, key = _resolve(table, schema, key)
     try:
-        SCHEMAS[table].validate(frame, lazy=True)
+        schema.validate(frame, lazy=True)
     except pandera.errors.SchemaErrors as error:
-        lines = _describe_failures(error.failure_cases)
+        lines = _describe_failures(error.failure_cases, schema)
         raise TableError(f"table {table!r} breaks its schema:\n" + "\n".join(lines)) from error
-    key = KEYS.get(table)
     if key is not None:
         duplicated = frame.duplicated(subset=list(key), keep=False)
         if duplicated.any():
@@ -135,21 +178,28 @@ def validate_table(frame: pd.DataFrame, table: str) -> pd.DataFrame:
     return frame
 
 
-def _arrow_type(dtype: object) -> pa.DataType:
+def _arrow_type(table: str, column: str, dtype: object) -> pa.DataType:
     name = str(dtype)
-    return pa.string() if name.startswith("string") else _ARROW_TYPES[name]
+    if name.startswith("string"):
+        return pa.string()
+    if name not in _ARROW_TYPES:
+        raise TableError(
+            f"table {table!r}: column {column!r} has type {name!r}, which the writer cannot "
+            f"convert; supported: string, {', '.join(_ARROW_TYPES)}"
+        )
+    return _ARROW_TYPES[name]
 
 
-def _to_arrow(frame: pd.DataFrame, table: str) -> pa.Table:
+def _to_arrow(frame: pd.DataFrame, table: str, schema: pandera_pd.DataFrameSchema) -> pa.Table:
     """Convert a valid frame to Arrow with the types of the schema.
 
     An all-null nullable string column has no type of its own in pandas; the schema gives
     it, so the file reads back with the same types that the schema checks.
     """
+    wanted_types = {name: _arrow_type(table, name, c.dtype) for name, c in schema.columns.items()}
     arrow = pa.Table.from_pandas(frame, preserve_index=False)
-    for name, column in SCHEMAS[table].columns.items():
+    for name, wanted in wanted_types.items():
         index = arrow.schema.get_field_index(name)
-        wanted = _arrow_type(column.dtype)
         if arrow.schema.field(index).type != wanted:
             arrow = arrow.set_column(
                 index, pa.field(name, wanted), arrow.column(index).cast(wanted)
@@ -166,6 +216,8 @@ def write_table(
     changes: Mapping[str, str] | None = None,
     build_date: datetime.date | None = None,
     commit: str | None = None,
+    schema: pandera_pd.DataFrameSchema | None = None,
+    key: tuple[str, ...] | None = None,
 ) -> TableMetadata:
     """Validate a frame and write it as a Parquet file with metadata.
 
@@ -173,7 +225,7 @@ def write_table(
 
     Args:
         frame: The rows to write.
-        table: Name of the shared table.
+        table: Name of the table; a project table has a name that no shared table has.
         path: Parquet file to write.
         source_ids: Manifest ids of the source files that the rows come from.
         changes: What the code that builds the table changes in the data of a source, by
@@ -182,16 +234,20 @@ def write_table(
             whose licence asks that changes be indicated.
         build_date: Date of the build; today when omitted.
         commit: Git commit of the code; the checked-out commit when omitted.
+        schema: Schema of a project table; omit it for a shared table.
+        key: Columns of the key of a project table; required with `schema`.
 
     Returns:
         The metadata stored in the file.
 
     Raises:
-        TableError: If the frame breaks the contract of the table, or a change note is
-            empty or names a source that is not in `source_ids`.
+        TableError: If the frame breaks the contract of the table, the project table takes
+            the name of a shared table or has no key, a column has a type that the writer
+            cannot convert to Arrow, or a change note is empty or names a source that is
+            not in `source_ids`.
         RuntimeError: If `commit` is omitted and git cannot give it.
     """
-    validate_table(frame, table)
+    validate_table(frame, table, schema=schema, key=key)
     notes = dict(sorted((changes or {}).items()))
     stray = sorted(set(notes) - set(source_ids))
     if stray:
@@ -208,7 +264,7 @@ def write_table(
         commit=commit or current_commit(),
         changes=notes,
     )
-    arrow = _to_arrow(frame, table)
+    arrow = _to_arrow(frame, table, _resolve(table, schema, key)[0])
     stored = {
         METADATA_KEY: json.dumps(
             {
