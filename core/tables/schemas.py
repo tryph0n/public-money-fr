@@ -179,8 +179,10 @@ STATE_REVENUE_LINES = _schema(
         ),
         "category": _text("Category as published."),
         "stage": _text(
-            "Revenue stage of the amount.",
-            allowed=("voted", "amending_laws", "collected"),
+            "Revenue stage of the amount: voted, amending_laws, collected (same concept as the "
+            "voted line, net of refunds and tax reliefs) or collected_gross (collected before "
+            "the refunds and tax reliefs of the State are deducted).",
+            allowed=("voted", "amending_laws", "collected", "collected_gross"),
         ),
         "amount_eur": _amount(_EUROS),
         "source_id": _source_id(),
