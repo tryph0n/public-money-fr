@@ -12,112 +12,112 @@
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "ccfcad7344015dd8be4c800148eb552fcd602e3f5df9895879731e2607e3f20b",
-        "size": 243386
+        "sha256": "d4a907df0ac1581addba513e01fe92e062f198d140fabb7468406614de7a53c8",
+        "size": 214717
       }
     },
     "execution-2010-bg-cp": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "611ec26f0e8590940c2f298df266f178c8b2f0e9ff915298ace19e473663de77",
-        "size": 244504
+        "sha256": "78eff2c045f787dc1812ff28969f5c6f50cfdec91bb3c6c116575db817169f7a",
+        "size": 215835
       }
     },
     "execution-2010-cas-ae": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "215a2d48d8a7dda261051d43f41b8a03af200808d9c4408248b22e3b4e689961",
-        "size": 12935
+        "sha256": "818a335e8e28d4e5412138705a8b930ad75200a000ccdbea886396018277d673",
+        "size": 11469
       }
     },
     "execution-2010-cas-cp": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "5b109a1fcd810174b9f6bb784e8af69b6bcc87eaeb689a8ae23aa1ecb5f0a5f2",
-        "size": 12999
+        "sha256": "771c290ccb6ae0618efbb443615d4c2a09f5cfef25eb962c85815ddbc6dc9e97",
+        "size": 11533
       }
     },
     "execution-2010-ccf-ae": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "ecf012649e2e28ba0dcdfb43186012f1e979d32375c8fd7d2993f57d152cf1e4",
-        "size": 11247
+        "sha256": "278ab6acce5355c8b8f7d6163f2fa0c4a6b58c3309b58e5582790fdefa93a3ee",
+        "size": 9932
       }
     },
     "execution-2010-ccf-cp": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "ca0f7f232c97e13a94c7bcade2034d66b74438f7d2da0b9f78384ccf20c92288",
-        "size": 11136
+        "sha256": "e245e28f3a2f37ffae1df149add0f9fc07521177bc075750850fe0b1efda365e",
+        "size": 9821
       }
     },
     "execution-2011-bg-ae": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "aec6154c1385bb699b6dacbe60e9df308e40f88b8d8fe08b520cf014a9c976ba",
-        "size": 460803
+        "sha256": "e7b5cf1386138bfeb4c144fe7e2cfdd8cc6ef567bbdac2f2286ee9b743f625c6",
+        "size": 414793
       }
     },
     "execution-2011-bg-cp": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "f5158a450bd1f0307c089df1ac0409e687c4b5d0e6714dde4861f1b2079cfcb5",
-        "size": 213740
+        "sha256": "ed3aa0f1a30b01be28bba7c454baddb03f59c61ddcf10b7fc5e2da228fc95ef0",
+        "size": 189674
       }
     },
     "execution-2011-cas-ae": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "452249b816c80d8ad29cc0b11848653724b2d0a459bbdc800b627069d8b8ba79",
-        "size": 19486
+        "sha256": "642b70ed8e77c7bdf80b3d1fea7337f5d270abfd16650e92e8ae8923d1e17922",
+        "size": 17385
       }
     },
     "execution-2011-cas-cp": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "418dd76537df2acd15400ee0022bca225eeb22d4c13c232e702464bf374907ff",
-        "size": 16883
+        "sha256": "90a1500bb8015006bdc6b663b9e0b14ade9fd0ec7e0d6b916b4e3111ae314dec",
+        "size": 15121
       }
     },
     "execution-2011-ccf-ae": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "e496020277b0aff1a7991da35b718adeb6d3198e3d1d19776a76d84a2cbb261d",
-        "size": 12044
+        "sha256": "c766bd97f47c5a58429ae7a5f5985d909534c3ac3f1265cc2ef2a5a83cb16073",
+        "size": 10552
       }
     },
     "execution-2011-ccf-cp": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "ba31c2f96719fcbc052f182f19c92ecd5e7720aff25c489e5d67e8da5ef844e3",
-        "size": 12757
+        "sha256": "2232072d5542ce0436d14bcd4cb4f58d04417997cb1fe1b6b858cd47171f0810",
+        "size": 11321
       }
     },
     "execution-2012-ae": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "2b9a2d6a683e411bb9f8c55e2fa36a5d67e6709db0e2dc127d985bd596e80a47",
-        "size": 246839
+        "sha256": "1b597d943ae75d75d80cdfab1239c25c8b51e696a7103bdfef2bfe4a7f6e2c61",
+        "size": 218912
       }
     },
     "execution-2012-cp": {
       "records": {
         "path": "records.json",
         "retrieved_on": "2026-11-27",
-        "sha256": "20cdb2e743a373404063f6847c7374bf24d2b77fa450624e521d7ab8f1769e91",
-        "size": 228544
+        "sha256": "8b4eba17dc428a48b776043ff3296d281da3ae70fa9a24d17f4bde42aead3347",
+        "size": 201977
       }
     },
     "lfi-2019-voted": {
