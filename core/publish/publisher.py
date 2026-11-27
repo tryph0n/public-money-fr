@@ -2,7 +2,8 @@
 
 Each table is uploaded as Parquet with a dataset card generated from the manifest. A content
 hash of the data and the card, stored in the dataset, lets a second publish of the same
-content do nothing, so it creates no commit.
+content do nothing, so it creates no commit. The hash describes the upload, not the dataset, so
+a file of the upload that the dataset lacks is uploaded again even when the hash matches.
 
 A publish never deletes a file. If the dataset holds a table file that the publish does not
 hold, the publish stops before any upload, so a run that builds one table fewer cannot remove
@@ -195,7 +196,8 @@ def plan_commit(
         upload: What the publish sends.
 
     Returns:
-        The commit, or None if the stored hash equals the hash of the upload.
+        The commit, or None if the stored hash equals the hash of the upload and the dataset
+        holds every file of the upload.
 
     Raises:
         PublishError: If the dataset holds a table file that the upload does not hold.
@@ -212,7 +214,7 @@ def plan_commit(
             f"{upload.repo_id} holds table files that this publish does not hold, so it would "
             f"drop them from the dataset: {', '.join(missing)}. Nothing was uploaded."
         )
-    if stored_hash == upload.content_hash:
+    if stored_hash == upload.content_hash and set(upload.files) <= set(present_files):
         return None
     operations = [
         CommitOperationAdd(path_in_repo=path, path_or_fileobj=data)
@@ -229,7 +231,8 @@ def publish(api: HubApi, upload: Upload) -> bool:
         upload: What to send.
 
     Returns:
-        True if a commit was created, False if the content hash had not changed.
+        True if a commit was created, False if the content hash had not changed and
+        the dataset holds every file.
 
     Raises:
         PublishError: If the dataset holds a table file that the upload does not hold.
