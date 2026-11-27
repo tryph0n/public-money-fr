@@ -3,8 +3,10 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pandas as pd
+import pandera.pandas as pa
 import pytest
 
+from core.cli import main
 from core.fetch.adapters import manual_name
 from core.fetch.lockfile import Lockfile, sha256_of
 from core.sources.manifest import MANIFEST_DIR, Source, load_manifest
@@ -19,7 +21,7 @@ from core.tables.manual import (
     rows_path,
 )
 from core.tables.writer import TableError
-from tests.test_project_tables import KEY, mart_schema
+from tests.test_project_tables import KEY, mart_frame, mart_schema
 
 REAL = load_manifest(MANIFEST_DIR)["stability-programme-france-2016"]
 TABLE = "mart_example"
@@ -193,3 +195,112 @@ def test_committed_rows_equal_the_parser_output(builder: Builder, source_id: str
     if differences is None:
         pytest.skip(f"the raw file of {source_id} is not in data/manual/")
     assert differences == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ('"flag": true', '"flag": null'),
+        ('"year": 2016', '"year": null'),
+        ('"year": 2016', '"year": 70000'),
+        ('"flag": true', '"flag": "x"'),
+    ],
+)
+def test_a_cell_that_cannot_be_read_names_the_source_the_file_and_the_line(
+    source: Source, manual_dir: Path, tmp_path: Path, old: str, new: str
+) -> None:
+    path = extract(source, manual_dir, tmp_path / "rows")
+    path.write_text(path.read_text().replace(old, new, 1))
+    with pytest.raises(ManualRowsError) as error:
+        read_rows(path, TABLE, schema=mart_schema(), key=KEY)
+    assert f"source {source.id}: {path}:2: column" in str(error.value)
+
+
+def test_a_null_in_a_required_column_fails_the_build_and_writes_nothing(
+    source: Source, manual_dir: Path, tmp_path: Path
+) -> None:
+    rows_dir = tmp_path / "rows"
+    path = extract(source, manual_dir, rows_dir)
+    path.write_text(path.read_text().replace('"flag": true', '"flag": null', 1))
+    with pytest.raises(BuildError, match=rf"{source.id}.*:2: column 'flag'"):
+        run_build(mart_builder(source, []), source, rows_dir, tmp_path / "build")
+    assert not list((tmp_path / "build").rglob("*.parquet"))
+
+
+def test_a_schema_failure_in_the_committed_rows_names_the_source_and_the_file(
+    source: Source, manual_dir: Path, tmp_path: Path
+) -> None:
+    path = extract(source, manual_dir, tmp_path / "rows")
+    lines = path.read_text().splitlines()
+    path.write_text("\n".join([*lines, lines[1]]) + "\n")
+    with pytest.raises(TableError, match=rf"source {source.id}: .*{path.name}.*repeated key"):
+        read_rows(path, TABLE, schema=mart_schema(), key=KEY)
+
+
+def nullable_schema() -> pa.DataFrameSchema:
+    return pa.DataFrameSchema(
+        {
+            "year": pa.Column("int16", description="Year."),
+            "label": pa.Column("string", nullable=True, description="Label."),
+            "n": pa.Column("Int8", nullable=True, description="Count."),
+            "x": pa.Column("float64", nullable=True, description="Amount."),
+        },
+        strict=True,
+        name="mart_nullable",
+    )
+
+
+def nullable_parser(label: str | None, n: int | None, x: float | None) -> RowParser:
+    def parse(files: list[Path]) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "year": pd.array([2016], dtype="int16"),
+                "label": pd.array([label], dtype="string"),
+                "n": pd.array([n], dtype="Int8"),
+                "x": [float("nan") if x is None else x],
+            }
+        )
+
+    return parse
+
+
+@pytest.mark.parametrize("column", ["label", "n", "x"])
+@pytest.mark.parametrize("committed_null", [True, False])
+def test_equality_check_names_a_cell_that_changes_between_null_and_a_value(
+    source: Source, manual_dir: Path, tmp_path: Path, column: str, committed_null: bool
+) -> None:
+    full = {"label": "p. 12", "n": 3, "x": 1.5}
+    nulled = {**full, column: None}
+    old, new = (nulled, full) if committed_null else (full, nulled)
+    options = {"schema": nullable_schema(), "key": ("year",)}
+    extract_rows(nullable_parser(**old), source, "t", tmp_path, manual_dir, **options)
+    [line] = (
+        compare_rows(nullable_parser(**new), source, "t", tmp_path, manual_dir, **options) or []
+    )
+    assert f"row 1, column {column!r}" in line
+
+
+def test_rows_are_written_in_utf8_and_stay_deterministic(
+    source: Source, manual_dir: Path, tmp_path: Path
+) -> None:
+    def parse(files: list[Path]) -> pd.DataFrame:
+        return toy_parser(files).assign(code=pd.array(["stabilité", "08"], dtype="string"))
+
+    kwargs = {"schema": mart_schema(), "key": KEY}
+    path = extract_rows(parse, source, TABLE, tmp_path / "rows", manual_dir, **kwargs)
+    first = path.read_bytes()
+    assert "stabilité".encode() in first
+    extract_rows(parse, source, TABLE, tmp_path / "rows", manual_dir, **kwargs)
+    assert path.read_bytes() == first
+    assert read_rows(path, TABLE, **kwargs)["code"].tolist() == ["stabilité", "08"]
+
+
+def test_extract_with_a_parser_key_that_is_not_in_the_manifest_exits_2(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
+    builder = Builder(
+        TABLE, "finance", ("not-a-source",), lambda files: BuiltTable(mart_frame(), {}),
+        schema=mart_schema(), key=KEY, manual_parsers={"not-a-source": toy_parser},
+    )  # fmt: skip
+    assert main(["extract", "--rows-dir", str(tmp_path)], [builder]) == 2
+    assert "not-a-source" in caplog.text

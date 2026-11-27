@@ -86,7 +86,7 @@ Run the application locally: `uv run streamlit run app/Home.py`, then open
 ### Fetch the sources
 
 The command line is `uv run python -m core COMMAND` (`core/cli.py`); the page "Commands" of the
-docs gives the help of each command, generated from the parser. Four commands, run in this
+docs gives the help of each command, generated from the parser. Five commands, run in this
 order:
 
 - `fetch [source id ...]` fetches the sources of the manifest
@@ -101,13 +101,15 @@ order:
   `data/build/<dataset>/<table>.parquet` (`--build-dir`). A project registers builders through the
   entry point group `public_money_fr.builders`; with none registered, the command does nothing
   and exits 0.
+- `extract [table ...]` writes the committed rows of manual sources; see "Committed rows of
+  manual sources" below.
 - `validate [dataset ...]` reads the files of the build folders back and checks them against the
   schemas, the builders and the manifest; each problem is one line that names the file.
 - `publish`: see Publishing above.
 
 Exit codes: 0 on success (a command with nothing to do included); 1 when a source cannot be
-fetched, a builder fails, or a real `publish` finds `HF_TOKEN` unset; 2 for a bad argument or an
-unknown name, an invalid manifest, a missing lockfile, a table file that `validate` refuses, or a
+fetched, a builder fails, an extraction is refused, or a real `publish` finds `HF_TOKEN` unset; 2 for a bad argument or an
+unknown name (a table or parser key that `extract` cannot find), an invalid manifest, a missing lockfile, a table file that `validate` refuses, or a
 publish that stops (a file that is not Parquet, two files for one table, a table that the dataset
 holds and the publish does not, a stale date of last update).
 
@@ -117,7 +119,7 @@ The runner has no copy of a file of kind `manual`, and raw files are never commi
 project parser of such a file runs on the machine of the owner, and its rows are committed in
 `core/sources/rows/<source id>/<table>.jsonl`: a header line (source id, table, SHA-256 of the
 raw file) and one JSON line for each row. A parser is registered in `Builder.manual_parsers`.
-Put the raw file in `data/manual/`, then run `uv run python -m core.cli extract [table ...]`
+Put the raw file in `data/manual/`, then run `uv run python -m core extract [table ...]`
 (`--manual-dir`, `--rows-dir`); two runs on the same file give the same bytes. Extract again
 when the parser changes, and commit the diff.
 

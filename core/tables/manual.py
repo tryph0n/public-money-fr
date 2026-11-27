@@ -7,8 +7,9 @@ request commits. The build reads that file with `read_rows` and never the raw fi
 
 File format: the first line is a header with the source id, the table name and the SHA-256 of
 the raw file; each other line is one row, an object whose keys follow the column order of the
-table. Dates are ISO strings. The writer is deterministic (same rows, same bytes), and a float
-is written with the shortest text that reads back as the same number.
+parser frame. Dates are ISO strings. The text is UTF-8, so accents stay readable. The
+writer is deterministic (same rows, same bytes), and a float is written with the shortest
+text that reads back as the same number.
 """
 
 import datetime
@@ -27,7 +28,7 @@ from core.fetch.fetcher import DEFAULT_MANUAL_DIR
 from core.fetch.lockfile import sha256_of
 from core.sources.manifest import Source
 from core.tables.schemas import SCHEMAS
-from core.tables.writer import validate_table
+from core.tables.writer import TableError, validate_table
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +70,24 @@ def render_rows(frame: pd.DataFrame, source_id: str, table: str, sha256: str) ->
     Returns:
         A header line and one line for each row, each ending with a newline.
     """
-    lines = [json.dumps({"source_id": source_id, "table": table, "sha256": sha256})]
+    lines = [
+        json.dumps({"source_id": source_id, "table": table, "sha256": sha256}, ensure_ascii=False)
+    ]
     columns = list(frame.columns)
     for values in frame.itertuples(index=False, name=None):
-        lines.append(json.dumps({c: _cell(v) for c, v in zip(columns, values, strict=True)}))
+        lines.append(
+            json.dumps(
+                {c: _cell(v) for c, v in zip(columns, values, strict=True)}, ensure_ascii=False
+            )
+        )
     return "\n".join(lines) + "\n"
 
 
 def _read_lines(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Return the header and the rows of a committed file."""
     try:
-        parsed = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+        text = path.read_text(encoding="utf-8")
+        parsed = [json.loads(line) for line in text.removesuffix("\n").split("\n")]
     except (OSError, ValueError) as error:
         raise ManualRowsError(f"{path}: cannot be read as committed rows: {error}") from error
     if not parsed or not all(isinstance(item, dict) for item in parsed):
@@ -118,14 +126,24 @@ def check_header(path: Path, source: Source, table: str) -> None:
         )
 
 
-def _convert(value: object, dtype: str, where: str) -> object:
+_INT_RANGES = {"int8": 8, "Int8": 8, "int16": 16}
+
+
+def _convert(value: object, dtype: str, nullable: bool, where: str) -> object:
     """Return a cell as the Python value of a column type, or raise."""
     if value is None:
+        if not nullable:
+            raise ManualRowsError(f"{where}: null in a column that does not allow null")
         return None
     if dtype.startswith("string"):
         ok = isinstance(value, str)
-    elif dtype in ("int8", "Int8", "int16"):
-        ok = isinstance(value, int) and not isinstance(value, bool)
+    elif dtype in _INT_RANGES:
+        bits = _INT_RANGES[dtype]
+        ok = (
+            isinstance(value, int)
+            and not isinstance(value, bool)
+            and -(2 ** (bits - 1)) <= value < 2 ** (bits - 1)
+        )
     elif dtype == "float64":
         ok = isinstance(value, int | float) and not isinstance(value, bool)
         value = float(value) if ok else value  # type: ignore[arg-type]
@@ -176,7 +194,8 @@ def read_rows(
     Raises:
         ManualRowsError: If the file is for another table, a row lacks a column or has
             another one, or a cell does not convert to its column type.
-        TableError: If the rows break the schema or the key.
+        TableError: If the rows break the schema or the key; the message names the source
+            and the file.
     """
     columns = (schema or SCHEMAS[table]).columns
     header, rows = _read_lines(path)
@@ -184,19 +203,23 @@ def read_rows(
         raise ManualRowsError(
             f"{path}: the file is for table {header.get('table')!r}, not {table!r}"
         )
+    origin = f"source {header.get('source_id')}: {path}"
     data: dict[str, list[object]] = {name: [] for name in columns}
     for number, row in enumerate(rows, start=2):
         if set(row) != set(columns):
             raise ManualRowsError(
-                f"{path}:{number}: columns {sorted(row)} differ from those of table {table!r}"
+                f"{origin}:{number}: columns {sorted(row)} differ from those of table {table!r}"
             )
         for name, column in columns.items():
-            where = f"{path}:{number}: column {name!r}"
-            data[name].append(_convert(row[name], str(column.dtype), where))
+            where = f"{origin}:{number}: column {name!r}"
+            data[name].append(_convert(row[name], str(column.dtype), column.nullable, where))
     frame = pd.DataFrame(
         {name: _column(values, str(columns[name].dtype)) for name, values in data.items()}
     )
-    return validate_table(frame, table, schema=schema, key=key)
+    try:
+        return validate_table(frame, table, schema=schema, key=key)
+    except TableError as error:
+        raise TableError(f"{origin}: {error}") from error
 
 
 def raw_files(source: Source, manual_dir: Path) -> list[Path] | None:
@@ -318,7 +341,8 @@ def compare_rows(
     for number in range(min(len(committed), len(parsed))):
         old, new = committed.iloc[number], parsed.iloc[number]
         for column in committed.columns:
-            if not (pd.isna(old[column]) and pd.isna(new[column])) and old[column] != new[column]:
+            old_null, new_null = pd.isna(old[column]), pd.isna(new[column])
+            if old_null != new_null or (not old_null and old[column] != new[column]):
                 lines.append(
                     f"row {number + 1}, column {column!r}: committed {old[column]!r}, "
                     f"parser {new[column]!r}"

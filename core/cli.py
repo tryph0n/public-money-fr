@@ -1,14 +1,16 @@
 """Command line of the project: `uv run python -m core COMMAND`.
 
-Commands: `fetch`, `build`, `validate` and `publish`. Exit codes:
+Commands: `fetch`, `build`, `extract`, `validate` and `publish`. Exit codes:
 
 - 0: success; a command with nothing to do (no builder registered) also exits 0.
-- 1: a source could not be fetched, a builder failed, or `publish` needs `HF_TOKEN` and finds
+- 1: a source could not be fetched, a builder failed, an extraction was refused (raw file
+  missing or changed, rows that break the schema), or `publish` needs `HF_TOKEN` and finds
   it unset (a real run only; the dry run needs no token).
-- 2: a bad argument or an unknown name, an invalid manifest, a missing lockfile, a table file
-  that `validate` refuses, or a publish that stops (a table file that is not Parquet, two files
-  for one table, a table that the dataset holds and the publish does not, a stale date of last
-  update, a card that cannot state a licence). Nothing is uploaded.
+- 2: a bad argument or an unknown name (a table or a parser key that `extract` cannot find),
+  an invalid manifest, a missing lockfile, a table file that `validate` refuses, or a publish
+  that stops (a table file that is not Parquet, two files for one table, a table that the
+  dataset holds and the publish does not, a stale date of last update, a card that cannot
+  state a licence). Nothing is uploaded.
 """
 
 import argparse
@@ -132,6 +134,19 @@ def _extract(
     if unknown:
         logger.error("no manual source to extract for: %s", ", ".join(sorted(unknown)))
         return 2
+    for builder in chosen:
+        missing = [
+            source_id
+            for source_id in builder.manual_parsers
+            if source_id not in manifest or manifest[source_id].access["kind"] != "manual"
+        ]
+        if missing:
+            logger.error(
+                "table %r: parser key %s is not a manual source of the manifest",
+                builder.table,
+                ", ".join(missing),
+            )
+            return 2
     try:
         for builder in chosen:
             for source_id, parse in builder.manual_parsers.items():
