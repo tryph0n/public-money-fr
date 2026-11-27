@@ -113,6 +113,34 @@ unknown name (a table or parser key that `extract` cannot find), an invalid mani
 publish that stops (a file that is not Parquet, two files for one table, a table that the dataset
 holds and the publish does not, a stale date of last update).
 
+### Monthly refresh
+
+`.github/workflows/data-refresh.yml` runs on the first day of each month and by hand (Actions
+tab, "Run workflow"). It runs `fetch --skip-manual`, a check of the pinned files, `build`,
+`validate` and `publish` for all four datasets, with the runtime dependencies only. The
+runner has no copy of a file downloaded by hand, so the fetch skips each source of kind `manual`
+with a notice that names it; its rows come from the committed rows. The workflow only reads the
+repository (`contents: read`, `issues: write`); it never commits. While no table builder
+exists, a green run means every remote source was fetched, no pinned file changed, and `publish`
+skipped each dataset with a notice.
+
+The check compares the lockfile that the fetch wrote with the committed one
+(`python -m core.fetch.pins`). When a pinned file changed upstream, or a source has no committed
+entry, the run publishes nothing and fails with the source and the file. To go on: read the
+date of last update again at the page named in the error, then update the manifest
+(`last_update`) and `sources.lock.json` in a pull request; the next run publishes.
+
+A failed step opens the issue "Data refresh failed", which names the step, the host and the
+error line. While that issue is open, a later failure adds a comment to it. A manual run with
+the input `force_failure` forces a failure to test this. The workflow and `hf-publish-check.yml`
+share the concurrency group `hf-publish`, so two runs never write to the datasets together.
+
+GitHub disables scheduled workflows of a public repository after 60 days with no activity in
+the repository ([documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)).
+A run that does not start opens no issue. To turn the schedule on again, open the Actions tab,
+choose "data-refresh" and click "Enable workflow" (or run
+`gh workflow enable data-refresh.yml`).
+
 ### Committed rows of manual sources
 
 The runner has no copy of a file of kind `manual`, and raw files are never committed. So the
