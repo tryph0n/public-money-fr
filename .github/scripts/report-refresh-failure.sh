@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Open an issue for a failed data refresh, or comment on the one that is still open.
-# Input (environment): FAILED_STEP, LOG_DIR, RUN_URL, GH_TOKEN, GH_REPO.
+# Input (environment): FAILED_STEP, LOG_DIR, RUN_URL, GH_TOKEN, GH_REPO; HF_TOKEN
+# is optional and only used to keep its value out of the issue.
 set -euo pipefail
 
 title="Data refresh failed"
@@ -9,6 +10,11 @@ error_line="no error line in the log"
 if [ -f "$log" ]; then
   error_line="$(grep -m1 -E '^(ERROR|Error)' "$log" || tail -n 1 "$log")"
 fi
+# The issue is public: remove the token value, and anything that looks like a Hugging Face token.
+if [ -n "${HF_TOKEN:-}" ]; then
+  error_line="${error_line//"$HF_TOKEN"/***}"
+fi
+error_line="$(printf '%s' "$error_line" | sed -E 's/hf_[A-Za-z0-9]{10,}/***/g')"
 
 case "$FAILED_STEP" in
   fetch)
@@ -34,8 +40,12 @@ case "$FAILED_STEP" in
     ;;
 esac
 
-body="$(printf 'Step: %s\nHost: %s\nError: %s\nRun: %s\n\n%s\n' \
-  "$FAILED_STEP" "$host" "$error_line" "$RUN_URL" "$advice")"
+# Step, host and error line come from a log: show them in a code fence longer than any run of
+# backticks in them, so that GitHub renders no markdown and no mention.
+details="$(printf 'Step: %s\nHost: %s\nError: %s' "$FAILED_STEP" "$host" "$error_line")"
+longest="$(printf '%s' "$details" | tr -c '`' '\n' | awk '{ if (length($0) > m) m = length($0) } END { print m + 0 }')"
+fence="$(printf '`%.0s' $(seq 1 $((longest > 2 ? longest + 1 : 3))))"
+body="$(printf '%s\n%s\n%s\n\nRun: %s\n\n%s\n' "$fence" "$details" "$fence" "$RUN_URL" "$advice")"
 
 open="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
   --jq "[.[] | select(.title == \"$title\")] | first | .number // empty")"
