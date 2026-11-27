@@ -145,3 +145,32 @@ def test_codes_of_real_files_stay_text() -> None:
     execution_2015 = read_table(FIXTURES / "PLR2015-Exec-Msn_CP-BG.csv", header_line=5)
     assert "07" in set(execution_2015["Action"])
     assert all(normalise_code(code) == code for code in execution_2015["Action"])
+
+
+G2_BYTES = (
+    b"Gestion;2016\nType Budget;Budget general\nCredits en euros\n"
+    b"Mission;Titre;Montant\nA;T2;1\nB;T3;1,5E+10\n"
+)
+
+
+def test_scientific_cell_is_named_by_the_header_line_after_a_preamble() -> None:
+    cells = find_scientific_cells(G2_BYTES, header_line=4)
+    assert cells == [ScientificCell(6, 2, "Montant", "1,5E+10")]
+
+
+def test_row_longer_than_the_line_one_header_raises_no_index_error() -> None:
+    data = b"Gestion;2016\nA;B\nx;y;1,5E+10\n"
+    assert find_scientific_cells(data, header_line=2) == [ScientificCell(3, 2, "", "1,5E+10")]
+    assert find_scientific_cells(data) == [ScientificCell(3, 2, "", "1,5E+10")]
+
+
+def test_extra_cell_of_a_row_longer_than_the_header_has_an_empty_column_name() -> None:
+    cells = find_scientific_cells(b"A;B\n1;2;3,5E+09\n")
+    assert cells == [ScientificCell(2, 2, "", "3,5E+09")]
+
+
+def test_preamble_cell_that_looks_scientific_is_not_reported() -> None:
+    data = b"Gestion;2016\nTotal;2,4E+09\nCredits en euros\nMission;Montant\nA;1,5E+10\n"
+    assert find_scientific_cells(data, header_line=4) == [
+        ScientificCell(5, 1, "Montant", "1,5E+10")
+    ]
