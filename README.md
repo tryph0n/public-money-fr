@@ -41,9 +41,9 @@ only its card (`README.md`) and `.gitattributes`.
 | [`sam-bot/public-money-security`](https://huggingface.co/datasets/sam-bot/public-money-security) | No |
 | [`sam-bot/public-money-election`](https://huggingface.co/datasets/sam-bot/public-money-election) | No |
 
-Publishing: `uv run python -m core.cli publish DATASET TABLE.parquet... [--dry-run]` uploads
-tables written by `write_table` to the dataset `DATASET` (core, finance, security or election)
-in one commit, with a card generated from the manifest (`core/publish/publisher.py`,
+Publishing: `uv run python -m core publish [DATASET ...] [--dry-run]` uploads the built tables
+of each named dataset (core, finance, security or election; all four if none is named), read
+from `data/build/<dataset>/*.parquet` (`--build-dir`), in one commit for each dataset, with a card generated from the manifest (`core/publish/publisher.py`,
 `core/publish/card.py`). A publish never deletes a file. If the dataset holds a table file
 (`data/*.parquet`) that the publish does not hold, it stops before any upload with exit code 2
 and names the file, so a publish gives every table of the dataset; other files, for example one
@@ -53,11 +53,15 @@ licences, build date, and for each input the date of its last update that the pr
 links the material and prints the change notes that the table builder stores with
 `write_table(..., changes=...)`, and refuses the input without them. For an input with no
 declared licence it gives the basis of reuse from the manifest, the source page and the date of
-its last update. A second publish of the same content creates no commit. `--dry-run` prints the
+its last update. A second publish of the same content creates no commit, unless a file of the upload is missing
+from the dataset (for example deleted by hand): that file is uploaded again, even when the content
+did not change. A file changed by hand but still present is not detected. `--dry-run` prints the
 files and the card and makes no network call; it does not read the dataset, so it shows neither
 a refusal nor an unchanged hash. A network or Hub error ends the command with the error of the
 library and a non-zero exit code. A real run reads the token from the `HF_TOKEN` environment
-variable only; it is a GitHub Actions secret.
+variable only; it is a GitHub Actions secret. A dataset with no registered builder is skipped
+with a notice, so the command goes on. There is no filter by table: a publish gives every table
+of the dataset.
 
 A publish, the dry run included, also reads the lockfile (`--lock`, `sources.lock.json` by
 default) and stops with exit code 2 when a pinned file of an input changed after its date of
@@ -81,14 +85,50 @@ Run the application locally: `uv run streamlit run app/Home.py`, then open
 
 ### Fetch the sources
 
-`uv run python -m core.cli fetch [source id ...]` fetches the sources of the manifest
-(`core/sources/`) into `data/raw/<source id>/` (git-ignored) and pins each file in
-`sources.lock.json` (size and SHA-256), which is committed. A file that the lockfile lists and
-whose bytes still match is not fetched again. `--offline` uses the cache only; `--force` fetches
-again. Resets and server errors are retried with backoff. A refusal (HTTP 401, 403 or 429, or a
-web page where data was asked for) stops the run with an error that names the host, with no
-retry. A source of kind `manual` is never downloaded: put the file in `data/manual/` (or in
-`data/raw/<source id>/`); it is copied and checked against the SHA-256 of the manifest.
+The command line is `uv run python -m core COMMAND` (`core/cli.py`); the page "Commands" of the
+docs gives the help of each command, generated from the parser. Five commands, run in this
+order:
+
+- `fetch [source id ...]` fetches the sources of the manifest
+  (`core/sources/`) into `data/raw/<source id>/` (git-ignored) and pins each file in
+  `sources.lock.json` (size and SHA-256), which is committed. A file that the lockfile lists and
+  whose bytes still match is not fetched again. `--offline` uses the cache only; `--force` fetches
+  again. Resets and server errors are retried with backoff. A refusal (HTTP 401, 403 or 429, or a
+  web page where data was asked for) stops the run with an error that names the host, with no
+  retry. A source of kind `manual` is never downloaded: put the file in `data/manual/` (or in
+  `data/raw/<source id>/`); it is copied and checked against the SHA-256 of the manifest.
+- `build [table or dataset ...]` runs the registered table builders on the raw cache and writes
+  `data/build/<dataset>/<table>.parquet` (`--build-dir`). A project registers builders through the
+  entry point group `public_money_fr.builders`; with none registered, the command does nothing
+  and exits 0.
+- `extract [table ...]` writes the committed rows of manual sources; see "Committed rows of
+  manual sources" below.
+- `validate [dataset ...]` reads the files of the build folders back and checks them against the
+  schemas, the builders and the manifest; each problem is one line that names the file.
+- `publish`: see Publishing above.
+
+Exit codes: 0 on success (a command with nothing to do included); 1 when a source cannot be
+fetched, a builder fails, an extraction is refused, or a real `publish` finds `HF_TOKEN` unset; 2 for a bad argument or an
+unknown name (a table or parser key that `extract` cannot find), an invalid manifest, a missing lockfile, a table file that `validate` refuses, or a
+publish that stops (a file that is not Parquet, two files for one table, a table that the dataset
+holds and the publish does not, a stale date of last update).
+
+### Committed rows of manual sources
+
+The runner has no copy of a file of kind `manual`, and raw files are never committed. So the
+project parser of such a file runs on the machine of the owner, and its rows are committed in
+`core/sources/rows/<source id>/<table>.jsonl`: a header line (source id, table, SHA-256 of the
+raw file) and one JSON line for each row. A parser is registered in `Builder.manual_parsers`.
+Put the raw file in `data/manual/`, then run `uv run python -m core extract [table ...]`
+(`--manual-dir`, `--rows-dir`); two runs on the same file give the same bytes. Extract again
+when the parser changes, and commit the diff.
+
+`build` gives the builder this file in place of the raw file, also on a machine that has the raw
+file, and the builder reads it with `core.tables.manual.read_rows` (types checked against the
+schema of the table). `build` refuses a file whose SHA-256 is not the `sha256` of the manifest,
+and names the source and both checksums. `uv run pytest tests/test_manual_rows.py` compares the
+rows of each registered parser with the committed file when the raw file is in `data/manual/`,
+and skips otherwise.
 
 ### Write a shared table
 

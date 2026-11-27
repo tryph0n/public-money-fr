@@ -2,7 +2,8 @@
 
 Each table is uploaded as Parquet with a dataset card generated from the manifest. A content
 hash of the data and the card, stored in the dataset, lets a second publish of the same
-content do nothing, so it creates no commit.
+content do nothing, so it creates no commit. The hash describes the upload, not the dataset, so
+a file of the upload that the dataset lacks is uploaded again even when the hash matches.
 
 A publish never deletes a file. If the dataset holds a table file that the publish does not
 hold, the publish stops before any upload, so a run that builds one table fewer cannot remove
@@ -30,9 +31,10 @@ import pyarrow.parquet as pq
 from huggingface_hub import CommitOperationAdd, HfApi
 
 from core.fetch.lockfile import Lockfile
+from core.publish import hf_check
 from core.publish.card import build_card
 from core.publish.freshness import check_last_update
-from core.publish.hf_check import CARD_PATH, DATASET_NAMES, NAMESPACE
+from core.publish.hf_check import CARD_PATH, DATASET_NAMES
 from core.sources.manifest import Source
 from core.tables.writer import read_metadata
 
@@ -92,7 +94,7 @@ def repo_id_of(dataset: str) -> str:
     """
     if dataset not in DATASET_NAMES:
         raise PublishError(f"unknown dataset {dataset!r}; known: {', '.join(DATASET_NAMES)}")
-    return f"{NAMESPACE}/public-money-{dataset}"
+    return hf_check.repo_id(dataset)
 
 
 def _count(number: int, noun: str) -> str:
@@ -195,7 +197,8 @@ def plan_commit(
         upload: What the publish sends.
 
     Returns:
-        The commit, or None if the stored hash equals the hash of the upload.
+        The commit, or None if the stored hash equals the hash of the upload and the dataset
+        holds every file of the upload.
 
     Raises:
         PublishError: If the dataset holds a table file that the upload does not hold.
@@ -212,7 +215,7 @@ def plan_commit(
             f"{upload.repo_id} holds table files that this publish does not hold, so it would "
             f"drop them from the dataset: {', '.join(missing)}. Nothing was uploaded."
         )
-    if stored_hash == upload.content_hash:
+    if stored_hash == upload.content_hash and set(upload.files) <= set(present_files):
         return None
     operations = [
         CommitOperationAdd(path_in_repo=path, path_or_fileobj=data)
@@ -229,7 +232,8 @@ def publish(api: HubApi, upload: Upload) -> bool:
         upload: What to send.
 
     Returns:
-        True if a commit was created, False if the content hash had not changed.
+        True if a commit was created, False if the content hash had not changed and
+        the dataset holds every file.
 
     Raises:
         PublishError: If the dataset holds a table file that the upload does not hold.

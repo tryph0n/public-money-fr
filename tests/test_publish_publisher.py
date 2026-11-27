@@ -13,6 +13,7 @@ from core.cli import main
 from core.fetch.lockfile import Lockfile
 from core.publish import publisher
 from core.sources.manifest import Source, load_manifest
+from core.tables.build import Builder, BuiltTable
 from core.tables.writer import write_table
 from tests.test_tables import good_frames
 
@@ -101,7 +102,23 @@ class FakeApi:
         repo_type: str,
     ) -> object:
         self.commits.append(([operation.path_in_repo for operation in operations], commit_message))
+        for operation in operations:
+            self.files[operation.path_in_repo] = operation.path_or_fileobj
         return None
+
+
+def run_cli(tmp_path: Path, paths: Sequence[Path], *extra: str) -> int:
+    """Run `publish core` on a build folder that holds copies of the given table files."""
+    folder = tmp_path / "build" / "core"
+    folder.mkdir(parents=True, exist_ok=True)
+    for path in paths:
+        (folder / path.name).write_bytes(path.read_bytes())
+
+    def unused(files: object) -> BuiltTable:
+        raise AssertionError("publish does not build")
+
+    builder = Builder("macro_fr", "core", (AMECO,), unused)
+    return main(["publish", "core", "--build-dir", str(tmp_path / "build"), *extra], [builder])
 
 
 def upload_of(tmp_path: Path, manifest: dict[str, Source], *names: str) -> publisher.Upload:
@@ -180,6 +197,16 @@ def test_plan_is_none_when_the_stored_hash_is_the_new_hash(
     assert publisher.plan_commit(present, "0" * 64, upload) is not None
 
 
+def test_plan_adds_a_missing_file_even_when_the_stored_hash_matches(
+    tmp_path: Path, manifest: dict[str, Source]
+) -> None:
+    upload = upload_of(tmp_path, manifest)
+    present = ["README.md", "content.sha256"]
+    plan = publisher.plan_commit(present, upload.content_hash, upload)
+    assert plan is not None
+    assert "data/macro_fr.parquet" in {operation.path_in_repo for operation in plan.operations}
+
+
 def test_plan_refuses_a_table_file_that_the_upload_does_not_hold(
     tmp_path: Path, manifest: dict[str, Source]
 ) -> None:
@@ -224,6 +251,20 @@ def test_publish_commits_the_plan_through_the_client(
     assert api.commits == [(sorted(upload.files), "data: publish 1 table")]
 
 
+def test_publish_twice_commits_once_and_uploads_again_a_deleted_file(
+    tmp_path: Path, manifest: dict[str, Source]
+) -> None:
+    api = FakeApi(tmp_path, {})
+    upload = upload_of(tmp_path, manifest)
+    assert publisher.publish(api, upload)
+    assert not publisher.publish(api, upload)
+    assert len(api.commits) == 1
+    del api.files["data/macro_fr.parquet"]
+    assert publisher.publish(api, upload)
+    assert len(api.commits) == 2
+    assert api.files == dict(upload.files)
+
+
 def test_publish_stops_before_any_commit_when_a_table_would_be_dropped(
     tmp_path: Path, manifest: dict[str, Source]
 ) -> None:
@@ -246,7 +287,7 @@ def test_dry_run_prints_files_and_card_and_makes_no_network_call(
     monkeypatch.setattr(publisher, "HfApi", refuse)
     path = write_macro(tmp_path / "a.parquet")
     upload = publisher.prepare("core", [path], manifest)
-    assert main(["publish", "core", str(path), "--dry-run"]) == 0
+    assert run_cli(tmp_path, [path], "--dry-run") == 0
     out = capsys.readouterr().out
     assert out.startswith("dry run: would upload to sam-bot/public-money-core")
     assert upload.content_hash in out
@@ -300,7 +341,7 @@ def test_a_project_table_is_published_next_to_a_shared_table(
     assert "data/mart_example.parquet" in upload.files
     assert "data/macro_fr.parquet" in upload.files
     monkeypatch.delenv("HF_TOKEN", raising=False)
-    assert main(["publish", "core", str(mart), str(macro), "--dry-run"]) == 0
+    assert run_cli(tmp_path, [mart, macro], "--dry-run") == 0
     assert "  data/mart_example.parquet (" in capsys.readouterr().out
 
 
@@ -315,7 +356,7 @@ def test_a_network_error_is_not_wrapped(
     monkeypatch.setattr(publisher, "HfApi", Unreachable)
     path = write_macro(tmp_path / "a.parquet")
     with pytest.raises(ConnectionError, match="no route"):
-        main(["publish", "core", str(path)])
+        run_cli(tmp_path, [path])
 
 
 def test_missing_file_is_refused_with_its_path(
@@ -324,8 +365,8 @@ def test_missing_file_is_refused_with_its_path(
     missing = tmp_path / "none.parquet"
     with pytest.raises(publisher.PublishError, match=r"no such file: .*none\.parquet"):
         publisher.prepare("core", [missing], manifest)
-    assert main(["publish", "core", str(missing), "--dry-run"]) == 2
-    assert "no such file" in caplog.text
+    assert run_cli(tmp_path, [], "--dry-run") == 2
+    assert "no table to publish" in caplog.text
 
 
 def test_unknown_dataset_and_duplicate_tables_are_refused(

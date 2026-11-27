@@ -1,0 +1,17 @@
+name: data-refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_failure:
+        description: "Force a failure to test the failure issue"
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "The data refresh workflow is not ready yet."

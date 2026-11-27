@@ -79,13 +79,43 @@ def _safe_name(name: str, url: str) -> str:
     return name
 
 
+def canonical_records(data: bytes, url: str) -> bytes:
+    """Return a records export in a fixed form: sorted fields, sorted records, compact JSON.
+
+    The portal gives no order, so two exports of the same records can differ in their bytes.
+    The form depends only on the records, so the SHA-256 changes only when the data changes.
+
+    Args:
+        data: The JSON export, a list of objects.
+        url: Where it came from, for the error message.
+
+    Returns:
+        The UTF-8 bytes of the records, each with its fields sorted, the records sorted by
+        their own text.
+
+    Raises:
+        FetchError: If the export is not a JSON list.
+    """
+    try:
+        records = json.loads(data)
+    except json.JSONDecodeError as error:
+        raise FetchError(f"{host_of(url)}: the export is not JSON: {url}") from error
+    if not isinstance(records, list):
+        raise FetchError(f"{host_of(url)}: the export is not a list of records: {url}")
+    lines = sorted(
+        json.dumps(record, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        for record in records
+    )
+    return f"[{','.join(lines)}]".encode()
+
+
 def _records(
     source: Source, client: HttpClient, base_urls: dict[str, str]
 ) -> dict[str, tuple[str, bytes]]:
     base = _base(source.access["portal"], base_urls)
     dataset = quote(source.access["dataset_id"])
     url = f"{base}/api/explore/v2.1/catalog/datasets/{dataset}/exports/json"
-    return {RECORDS_KEY: (RECORDS_FILE, client.get(url))}
+    return {RECORDS_KEY: (RECORDS_FILE, canonical_records(client.get(url), url))}
 
 
 def _attachments(
