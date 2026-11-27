@@ -90,6 +90,15 @@ one key value), then writes Parquet with the source ids, the build date and the 
 file metadata. `read_metadata` reads them back. A frame that breaks a schema raises `TableError`,
 which names the column, and no file is written.
 
+A project writes its own table (a mart) with the same function: build a pandera schema
+(rules of the whole frame come from `core.tables.schemas.frame_check`, which records the
+columns that the error names) and pass it with the key of the table:
+`write_table(frame, "my_mart", path, source_ids, schema=SCHEMA, key=("year", "code"))`.
+The name must not be that of a shared table, and every column type must be one of int8,
+Int8, int16, float64, bool, date or string; else `TableError` names the table, and the
+column and the type. `core.publish` takes the file like a shared table and puts it in
+`data/<table>.parquet` of the dataset of the project.
+
 ### Docstring style
 
 Docstrings in `core` use the [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).

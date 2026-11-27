@@ -5,7 +5,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from core.tables.schemas import FRAME_CHECK_COLUMNS, KEYS, SCHEMAS
+from core.tables.schemas import KEYS, SCHEMAS, frame_check_columns
 from core.tables.writer import TableError, read_metadata, validate_table, write_table
 
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
@@ -592,10 +592,11 @@ def _cross_column_error(table: str, changes: dict[str, list[object]]) -> str:
 
 def test_every_frame_rule_declares_its_columns() -> None:
     covered = {rule for _, _, rule, _ in CROSS_COLUMN_CASES}
-    declared = {check.name for schema in SCHEMAS.values() for check in schema.checks if check.name}
-    assert declared == covered == set(FRAME_CHECK_COLUMNS)
-    for rule, columns in FRAME_CHECK_COLUMNS.items():
-        assert len(columns) >= 2, rule
+    checks = [check for schema in SCHEMAS.values() for check in schema.checks]
+    assert {check.name for check in checks} == covered
+    for check in checks:
+        columns = frame_check_columns(check)
+        assert columns is not None and len(columns) >= 2, check.name
 
 
 @pytest.mark.parametrize(("table", "changes", "rule", "columns"), CROSS_COLUMN_CASES)

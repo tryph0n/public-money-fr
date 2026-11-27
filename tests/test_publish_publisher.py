@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
+import pandera.pandas as pa
 import pyarrow.parquet as pq
 import pytest
 from huggingface_hub import CommitOperationAdd
@@ -263,6 +264,42 @@ def test_real_run_without_token_builds_no_client(
     monkeypatch.setattr(publisher, "HfApi", refuse)
     path = write_macro(tmp_path / "a.parquet")
     assert publisher.run("core", [path], manifest, dry_run=False) == 1
+
+
+def test_a_project_table_is_published_next_to_a_shared_table(
+    tmp_path: Path,
+    manifest: dict[str, Source],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    schema = pa.DataFrameSchema(
+        {
+            "year": pa.Column("int16", description="Year."),
+            "source_id": pa.Column("string", description="Source id."),
+        },
+        strict=True,
+        name="mart_example",
+    )
+    frame = pd.DataFrame({"year": pd.array([2020], dtype="int16"), "source_id": [AMECO]})
+    mart = tmp_path / "mart.parquet"
+    write_table(
+        frame,
+        "mart_example",
+        mart,
+        [AMECO],
+        changes={AMECO: NOTE},
+        schema=schema,
+        key=("year",),
+        build_date=DAY,
+        commit=COMMIT,
+    )
+    macro = write_macro(tmp_path / "macro.parquet")
+    upload = publisher.prepare("core", [mart, macro], manifest)
+    assert "data/mart_example.parquet" in upload.files
+    assert "data/macro_fr.parquet" in upload.files
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    assert main(["publish", "core", str(mart), str(macro), "--dry-run"]) == 0
+    assert "  data/mart_example.parquet (" in capsys.readouterr().out
 
 
 def test_a_network_error_is_not_wrapped(

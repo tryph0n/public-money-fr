@@ -30,9 +30,12 @@ intersphinx_mapping = {
 }
 
 # The publisher protocol names a huggingface_hub class under its private module path, which
-# the library's documentation inventory does not list.
+# the library's documentation inventory does not list. The table writer names two pandera types
+# in its signatures; pandera has no inventory in the mapping.
 nitpick_ignore = [
     ("py:class", "huggingface_hub._commit_api.CommitOperationAdd"),
+    ("py:class", "pandera.api.checks.Check"),
+    ("py:class", "pandera.api.pandas.container.DataFrameSchema"),
 ]
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
