@@ -23,6 +23,8 @@ last_update:
   url: https://commission.europa.eu/document/download/88e1f5dd-24e8-4047-a10a-121f88753ccc_fr?filename=european-semester-stability-programme_france_2016_fr.pdf
   where: 'Cover page of the document: "Version adoptée en Conseil des Ministres du 13 Avril 2016"'
   read_on: 2026-11-26
+  files:
+    "european-semester-stability-programme_france_2016_fr.pdf": c5a23fc60f3fe1ce433ff6cd50811b2306e868dedfb109e2b3865273148f245e
 grain: PDF of 120 pages with public balance, debt and expenditure tables
 years:
   first: 2016

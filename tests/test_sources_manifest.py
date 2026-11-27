@@ -22,6 +22,7 @@ VALID = {
         "url": "https://data.example.org/api/demo",
         "where": "Field modified of the dataset",
         "read_on": datetime.date(2026, 11, 26),
+        "files": {"records": "ab" * 32},
     },
     "grain": "One row per programme",
     "years": {"first": 2019, "last": 2019},
@@ -61,6 +62,7 @@ def test_last_update_loads_and_may_be_empty(tmp_path: Path) -> None:
     assert last_update.url == "https://data.example.org/api/demo"
     assert last_update.where == "Field modified of the dataset"
     assert last_update.read_on == datetime.date(2026, 11, 26)
+    assert last_update.files == {"records": "ab" * 32}
     assert load_source(write(tmp_path, last_update=None)).last_update is None
 
 
@@ -79,6 +81,8 @@ def test_last_update_is_a_required_key(tmp_path: Path) -> None:
         ({"url": None}, r"^demo\.yaml: last_update\.url"),
         ({"date": "soon"}, r"^demo\.yaml: last_update\.date: must be a date"),
         ({"other": 1}, r"^demo\.yaml: last_update\.other: unknown field"),
+        ({"files": {}}, r"^demo\.yaml: last_update\.files: must not be empty"),
+        ({"files": {"records": "ABC"}}, r"^demo\.yaml: last_update\.files\.records: must be a SHA"),
         (
             {"date": datetime.date(2026, 11, 20), "read_on": datetime.date(2026, 11, 19)},
             r"^demo\.yaml: last_update\.date: must not be after its read_on date",
