@@ -33,35 +33,54 @@ def test_refresh_steps_use_bash_so_that_a_failure_before_tee_stops_the_run() -> 
 
 SCRIPT = WORKFLOWS.parent / "scripts" / "report-refresh-failure.sh"
 FAKE_GH = """#!/usr/bin/env bash
-if [ "$2" = create ]; then
-  while [ $# -gt 0 ]; do
-    if [ "$1" = --body ]; then printf '%s' "$2" > "$POSTED"; fi
-    shift
-  done
+echo "$*" >> "$CALLS"
+if [ "$2" = list ]; then
+  printf '%s' "${OPEN_ISSUE:-}"
+  exit 0
 fi
+while [ $# -gt 0 ]; do
+  if [ "$1" = --body-file ]; then cp "$2" "$POSTED"; fi
+  shift
+done
 """
 
 
-def post(tmp_path: Path, error_line: str, step: str = "fetch", token: str = "") -> str:
-    """Run the report script with a fake `gh` and return the text it would post."""
+def run_script(
+    tmp_path: Path,
+    log: bytes | None,
+    step: str = "fetch",
+    token: str = "",
+    open_issue: str = "",
+    use_log_dir: bool = True,
+) -> tuple[str, str]:
+    """Run the report script with a fake `gh`; return the posted text and the `gh` calls."""
     fake = tmp_path / "bin" / "gh"
     fake.parent.mkdir()
     fake.write_text(FAKE_GH, encoding="utf-8")
     fake.chmod(0o755)
     logs = tmp_path / "logs"
     logs.mkdir()
-    (logs / f"{step}.log").write_text(error_line + "\n", encoding="utf-8")
+    if log is not None:
+        (logs / f"{step}.log").write_bytes(log + b"\n")
     posted = tmp_path / "posted.txt"
+    calls = tmp_path / "calls.txt"
     env = {
         "PATH": f"{fake.parent}:{os.environ['PATH']}",
         "FAILED_STEP": step,
-        "LOG_DIR": str(logs),
         "RUN_URL": "https://example.test/run/1",
         "POSTED": str(posted),
+        "CALLS": str(calls),
         "HF_TOKEN": token,
+        "OPEN_ISSUE": open_issue,
     }
+    if use_log_dir:
+        env["LOG_DIR"] = str(logs)
     subprocess.run(["bash", str(SCRIPT)], env=env, check=True, capture_output=True)
-    return posted.read_text(encoding="utf-8")
+    return posted.read_text(encoding="utf-8"), calls.read_text(encoding="utf-8")
+
+
+def post(tmp_path: Path, error_line: str, step: str = "fetch", token: str = "") -> str:
+    return run_script(tmp_path, error_line.encode(), step, token)[0]
 
 
 def test_error_line_is_fenced_longer_than_its_backticks(tmp_path: Path) -> None:
@@ -77,3 +96,32 @@ def test_token_value_is_not_posted(tmp_path: Path) -> None:
     text = post(tmp_path, "ERROR upload refused for secret-value-123", token="secret-value-123")
     assert "secret-value-123" not in text
     assert "ERROR upload refused for ***" in text
+
+
+def test_issue_opens_when_the_log_folder_is_not_set(tmp_path: Path) -> None:
+    text, calls = run_script(tmp_path, None, step="setup", use_log_dir=False)
+    assert "issue create" in calls
+    assert "Step: setup" in text
+
+
+def test_a_very_long_error_line_is_posted_from_a_file(tmp_path: Path) -> None:
+    text, calls = run_script(tmp_path, b"ERROR " + b"x" * 300_000)
+    assert "issue create" in calls
+    assert "--body-file" in calls
+    assert len(text) > 300_000
+
+
+def test_a_null_byte_in_the_log_keeps_the_error_line(tmp_path: Path) -> None:
+    text, _ = run_script(tmp_path, b"ERROR bad\x00byte")
+    assert "Error: ERROR bad" in text
+
+
+def test_only_issues_of_the_workflow_are_found_and_the_open_one_gets_the_comment(
+    tmp_path: Path,
+) -> None:
+    text, calls = run_script(tmp_path, b"ERROR again", open_issue="42")
+    listing = next(line for line in calls.splitlines() if line.startswith("issue list"))
+    assert "--author app/github-actions" in listing
+    assert "issue comment 42" in calls
+    assert "issue create" not in calls
+    assert "ERROR again" in text

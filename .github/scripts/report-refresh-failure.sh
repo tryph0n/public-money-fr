@@ -5,10 +5,10 @@
 set -euo pipefail
 
 title="Data refresh failed"
-log="$LOG_DIR/$FAILED_STEP.log"
+log="${LOG_DIR:-}/$FAILED_STEP.log"
 error_line="no error line in the log"
-if [ -f "$log" ]; then
-  error_line="$(grep -m1 -E '^(ERROR|Error)' "$log" || tail -n 1 "$log")"
+if [ -n "${LOG_DIR:-}" ] && [ -f "$log" ]; then
+  error_line="$(grep -a -m1 -E '^(ERROR|Error)' "$log" || tail -n 1 "$log")"
 fi
 # The issue is public: remove the token value, and anything that looks like a Hugging Face token.
 if [ -n "${HF_TOKEN:-}" ]; then
@@ -45,14 +45,17 @@ esac
 details="$(printf 'Step: %s\nHost: %s\nError: %s' "$FAILED_STEP" "$host" "$error_line")"
 longest="$(printf '%s' "$details" | tr -c '`' '\n' | awk '{ if (length($0) > m) m = length($0) } END { print m + 0 }')"
 fence="$(printf '`%.0s' $(seq 1 $((longest > 2 ? longest + 1 : 3))))"
-body="$(printf '%s\n%s\n%s\n\nRun: %s\n\n%s\n' "$fence" "$details" "$fence" "$RUN_URL" "$advice")"
+body_file="$(mktemp)"
+trap 'rm -f "$body_file"' EXIT
+printf '%s\n%s\n%s\n\nRun: %s\n\n%s\n' "$fence" "$details" "$fence" "$RUN_URL" "$advice" > "$body_file"
 
-open="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+open="$(gh issue list --state open --author app/github-actions \
+  --search "\"$title\" in:title" --json number,title \
   --jq "[.[] | select(.title == \"$title\")] | first | .number // empty")"
 
 if [ -n "$open" ]; then
-  gh issue comment "$open" --body "$body"
+  gh issue comment "$open" --body-file "$body_file"
   echo "Commented on issue #$open"
 else
-  gh issue create --title "$title" --body "$body"
+  gh issue create --title "$title" --body-file "$body_file"
 fi
