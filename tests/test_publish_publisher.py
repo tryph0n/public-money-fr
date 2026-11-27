@@ -9,6 +9,7 @@ import pytest
 from huggingface_hub import CommitOperationAdd
 
 from core.cli import main
+from core.fetch.lockfile import Lockfile
 from core.publish import publisher
 from core.sources.manifest import Source, load_manifest
 from core.tables.writer import write_table
@@ -21,6 +22,7 @@ CRPA = "stability-programme-france-2016"
 LFI = "lfi-2019-voted"
 NOTE = "Kept the series FRA.1.0.99.0.UBLGE and wrote one row per year."
 DAY = datetime.date(2026, 11, 1)
+LOCK = Lockfile.load(Path(__file__).parent.parent / "sources.lock.json")
 
 
 def macro_frame(value: float) -> pd.DataFrame:
@@ -262,7 +264,7 @@ def test_real_run_without_token_builds_no_client(
     monkeypatch.delenv("HF_TOKEN", raising=False)
     monkeypatch.setattr(publisher, "HfApi", refuse)
     path = write_macro(tmp_path / "a.parquet")
-    assert publisher.run("core", [path], manifest, dry_run=False) == 1
+    assert publisher.run("core", [path], manifest, LOCK, dry_run=False) == 1
 
 
 def test_a_network_error_is_not_wrapped(

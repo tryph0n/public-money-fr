@@ -29,7 +29,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from huggingface_hub import CommitOperationAdd, HfApi
 
+from core.fetch.lockfile import Lockfile
 from core.publish.card import build_card
+from core.publish.freshness import check_last_update
 from core.publish.hf_check import CARD_PATH, DATASET_NAMES, NAMESPACE
 from core.sources.manifest import Source
 from core.tables.writer import read_metadata
@@ -72,6 +74,8 @@ class Upload:
     files: Mapping[str, bytes]
     content_hash: str
     tables: int
+    #: Ids of the sources that the tables use.
+    source_ids: tuple[str, ...]
 
 
 def repo_id_of(dataset: str) -> str:
@@ -147,7 +151,14 @@ def prepare(dataset: str, paths: Sequence[Path], manifest: Mapping[str, Source])
     }
     files[CARD_PATH] = build_card(name, metadata, manifest).encode()
     files[HASH_PATH] = (content_hash + "\n").encode()
-    return Upload(repo_id=repo_id, files=files, content_hash=content_hash, tables=len(paths))
+    source_ids = tuple(sorted({i for item in metadata for i in item.source_ids}))
+    return Upload(
+        repo_id=repo_id,
+        files=files,
+        content_hash=content_hash,
+        tables=len(paths),
+        source_ids=source_ids,
+    )
 
 
 def describe(upload: Upload) -> str:
@@ -244,6 +255,7 @@ def run(
     dataset: str,
     paths: Sequence[Path],
     manifest: Mapping[str, Source],
+    lock: Lockfile,
     *,
     dry_run: bool,
 ) -> int:
@@ -254,6 +266,8 @@ def run(
         paths: Parquet files written by `write_table`; every table of the dataset, because
             a publish refuses to drop a table that the dataset holds.
         manifest: The sources by id.
+        lock: The lockfile; a source whose pinned files changed after its date of last update
+            was read stops the publish, the dry run included.
         dry_run: Print the files and the card that would be uploaded, then stop. It makes no
             network call and does not read the dataset.
 
@@ -265,8 +279,10 @@ def run(
             same table, or the dataset holds a table that the files do not hold.
         TableError: If a file has no table metadata.
         CardError: If the card cannot state what the licences of the inputs ask for.
+        StaleDateError: If a pinned file of an input changed after its date was read.
     """
     upload = prepare(dataset, paths, manifest)
+    check_last_update(upload.source_ids, manifest, lock)
     if dry_run:
         print(describe(upload))
         return 0

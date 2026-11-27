@@ -37,6 +37,22 @@ last_update:
   url: https://www.data.gouv.fr/api/1/datasets/57559e6c88ee382aa2640390/
   where: Field last_update of the dataset, 2016-06-06T18:22:03+00:00
   read_on: 2026-11-26
+  files:
+    "PLR 2015 - Exécution par Ministère en AE pour le BG": 56727220a9c7beda8d827e863ff659a0576bd402423d504286dc89d3d2f73729
+    "PLR 2015 - Exécution par Ministère en AE pour les CAS": 0892d73a8604fd024cbe1a7b6963f775271bd2da3a7d5299f58cb9c8adce01fb
+    "PLR 2015 - Exécution par Ministère en AE pour les CCF": 0ffae6de3b536e5bc569a51b380a459ac99bde3f8dee9c9caa962bd63318df7d
+    "PLR 2015 - Exécution par Ministère en CP pour le BG": b9dab1b49181495f7a206c7155da159bc28af8fe3bde736f894ad7e59a750f5d
+    "PLR 2015 - Exécution par Ministère en CP pour les CAS": 308f910646a6611288c23560f48885005c2193173c15ce769b8b8be083ebd9ec
+    "PLR 2015 - Exécution par Ministère en CP pour les CCF": b41143beadd8a13c45a19e4d58d52b00fa77a06606dc6890381804f7db4a49fd
+    "PLR 2015 - Exécution par Mission en AE pour le BG": cd074488a706b7b6d9c5070ce76fc48197914709c1ebd2182424c0782c10808d
+    "PLR 2015 - Exécution par Mission en AE pour les CAS": 6528f4dd3e66fdd98c0c8d8c76b74ecdc3fa5cad055d04ffc965865c507593bc
+    "PLR 2015 - Exécution par Mission en AE pour les CCF": 96aa04a7a198815a7d956641b1f4b6d684e7c9a5bc09bbde8335450fe42a0e90
+    "PLR 2015 - Exécution par Mission en CP pour le BG": 152f923583380d31de2830397a1ccdcfdd811f5de05b00af2419ae2da42e39e9
+    "PLR 2015 - Exécution par Mission en CP pour les CAS": dd58df22595e6b6107fb911516de7818824521e406464f2e5030039ad3e80122
+    "PLR 2015 - Exécution par Mission en CP pour les CCF": 8288b3376b79df556914ac8ecf85d368e66a7440fccdabf21bb89fb4a0640615
+    "PLR 2015 - Exécution par Mission et catégorie pour le BG": 8fea72437cf3cd5e5e6880a638305ea3db6ccf7bce1cf5725a8a5e454106a652
+    "PLR 2015 - Exécution par Mission et catégorie pour les CAS": dd598483c0e7df81cda146652de1b3bb2ac07b4f9af740a6addd4a750fbdf4f4
+    "PLR 2015 - Exécution par Mission et catégorie pour les CCF": 56807fab2abd890395fc47d69acff3c5746e857eb64c12a8183c892e341e5b0f
 grain: One file per budget part (BG, CAS, CCF), per credit type (AE, CP) and per view (mission, ministry, mission and category)
 years:
   first: 2015

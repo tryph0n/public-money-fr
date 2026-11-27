@@ -14,6 +14,8 @@ last_update:
   url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/loi-de-finances-initiale-pour-2019-lfi-2019-1
   where: Field metas.default.modified of the dataset, 2019-03-21T14:46:59+00:00
   read_on: 2026-11-26
+  files:
+    "records": 767eefcd5013e15d6c8cb96a0ba17bf3049f97fe2be0daffd793c954ba1497fa
 grain: One record per mission, programme, action, sub-action, category and title, with the voted amounts AE and CP of 2019
 years:
   first: 2019

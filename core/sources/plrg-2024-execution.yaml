@@ -42,6 +42,34 @@ last_update:
   url: https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/plrg-2024/attachments
   where: The HTTP Last-Modified header of all 27 attachments is 29 April 2025 (between 15:33:35 and 15:37:53 GMT); the dataset field metas.default.modified (2024-04-17) is before the end of the data year, so it is not used.
   read_on: 2026-11-26
+  files:
+    "Annexe1-Etat_AE-2024.csv": 1c6611456b2f8ba0e9162f31a6532f91efd50da2ce1fa4b525b3dd9bfbb06420
+    "Annexe1-Etat_AE_CP-2024.csv": 5c374be4eb01bf71d007a1c25855d9c81116a09232e3cf653dd166536b8585fa
+    "Annexe1-Etat_CP-2024.csv": 2ec0b30f934104ea11c863fc044932c5e260930d0c06e8e05aa0977aa315e90b
+    "Annexe1-Etat_FDC_ADP-2024.csv": d025c1ca1318027a93e50f838c04c9463a355cf2b132e8a564e913e44b2e13c1
+    "Annexe1-Etat_Recettes.csv": 79812995f0429e31f1d60bdf749290ef9d6f003d9c14d018f267cd171d5eb35a
+    "Annexe1-Etat_Titre_Cat-2024.csv": 1308a9e8574866d4402b42c9b413c7b6eb6cab451e19836c142b488fe2aabc68
+    "Annexe2-Dec_Auto-2024.csv": dded98d482c0bdadc79b5d9c36be8f497214637adb6a35149a2e22b286a697b2
+    "Annexe2-Etat_AE-2024.csv": 42d52e3e51336002b6c16d670a249ba5e07826e55f89f76a131f4b88379688a8
+    "Annexe2-Etat_CP-2024.csv": 5acf533d6fe5c7be08f7671556f611b94e8fd8304abdef671579b1e3c6fd13d0
+    "Annexe2-Etat_Comptable-2024.csv": 1f298641d8994a824f820c6ad618067669558f01c08f13965c7475d28e9f1da9
+    "Annexe2-Etat_Recouvt-2024.csv": 9c7bcf1e556ef7081a8c0f79b63298a8e8d2a5fe59db5cbc677e410c53158741
+    "AnnexeSec-Fonc-2024.csv": f214710646791d8443c106bbb6e639baf9a469fc9b7576b46da54bc591c65907
+    "AnnexeSec-Invest-2024.csv": 3d10e60844511e1439c1c065b3feb83860b0c4c75f9a1f12e8acdf3afbbb4a04
+    "BACEA-Bilan-2024.csv": a05663af17129e93422f95df2d884697dc2005e793a994dd258383e2bfa9d346
+    "BACEA-Dev_AEN-2024.csv": f228d76635d2ac85c05731d2e08bb05351082b21b2a2111bdfaced9c3513856a
+    "BACEA-Dev_CPN-2024.csv": ae3010cb114d9f5c3dc71f0642232ef4a4e90e323a019f8f9a8b38061f723c95
+    "BACEA-Pres_Bud-2024.csv": e99487cc14384de04e75d1926330909ce95918c6b64dfb3ad2249bd20991314f
+    "BACEA-Recettes-2024.csv": def3f82dfed99ef762a68f527c86829a6971455cdb8898d5de4b59d5773627aa
+    "BACEA-Resultat-2024.csv": c9451c2d54ce393e8fbe16af5631dca71622d9e2825ca0e6b5d5d302a8f138dc
+    "BAPOIA-Bilan-2024.csv": ac11dc0017f22be65550b97d549af021737dc6945319e63f12e0f1b5ad815e34
+    "BAPOIA-CDR-2024.csv": b4a9f42c3ae949708bd2795fbe76892e866b6190169cbafeeb0b087cef14353f
+    "BAPOIA-Pres_Bud-2024.csv": b45d558f09cfa39f6a87122d2d48fabbd2d2549f7467b16c5aa4806786c5f9e5
+    "BAPOIA-Recettes-2024.csv": a5893031b7e21d9cf45f08c739312f8e24c62c7801921fe0e18628788c877342
+    "BAPOIA-Synt_AE-2024.csv": eaad858196b75b3846581bb7fe2a466d2107d88761886d6ae158538c435a0c1f
+    "BAPOIA-Synt_CP-2024.csv": 8c1c82297527c283c085671a87592f72ab60cb888e50e27011834120668a158c
+    "ListDepFisc-PLRN-2024.csv": 78bce09c297c0b06025ba0ab622c7a8403305788d405d48ff316100e8565e64c
+    "notices_par_fichiers_csv_plrg_2024.zip": 3b7faaad363affbdd1eeceb23e42fddb273488627a1f1c3f40f72c72eccad924
 grain: Annex files of the execution law by programme and title group (voted, amended, carried over, opened, spent); 26 CSV files and one notice archive
 years:
   first: 2024

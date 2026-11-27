@@ -18,6 +18,8 @@ last_update:
   url: https://economy-finance.ec.europa.eu/economic-research-and-databases/economic-databases/ameco-database/download-annual-data-set-macro-economic-database-ameco_en
   where: 'Date of the download page and of its item "AMECO - All zipped TXT files", 24 November 2026; the AMECO database page gives the "Ameco Online release note 24/11/2026"'
   read_on: 2026-11-26
+  files:
+    "AMECO16.TXT": e24acd0ef2b9773817c51ae29ea3d3a6562c751f1bb395e96bdb1a5f8c102380
 grain: One annual series per unit for France (national currency, Mrd EUR, percentage of GDP at current prices), one row per series
 years:
   first: 1960

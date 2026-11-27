@@ -8,9 +8,12 @@ The field `last_update` holds the date of the last update that the producer stat
 it was read; the dataset card prints it. It is empty (null) when the producer states no usable
 date, and a card then refuses the source. The files are pinned by checksum, so the date must be
 read again each time a pin changes: a new SHA-256 in `sources.lock.json` or in the manifest.
+`last_update.files` records the SHA-256 of the files the date was read for; a publish stops when
+a pinned file no longer matches it (`core/publish/freshness.py`).
 """
 
 import datetime
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -52,7 +55,8 @@ _FIELDS = (
 )
 _LICENCE_REQUIRED = ("name", "url", "read_on")
 _LICENCE_BASIS = ("basis", "decision")
-_LAST_UPDATE = ("date", "url", "where", "read_on")
+_LAST_UPDATE = ("date", "url", "where", "read_on", "files")
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 class ManifestError(ValueError):
@@ -108,6 +112,9 @@ class LastUpdate:
     #: Where the date is on that page or in that document, for example the field name.
     where: str
     read_on: datetime.date
+    #: SHA-256 of each file of the source (by file key) that the date was read for. A publish
+    #: stops when a pinned file differs from this record.
+    files: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -228,11 +235,20 @@ def _last_update(value: Any, path: Path) -> LastUpdate | None:
     read_on = _date(data["read_on"], "last_update.read_on", path)
     if date > read_on:
         raise ManifestError(f"{path.name}: last_update.date: must not be after its read_on date")
+    files = _mapping(data["files"], "last_update.files", path)
+    if not files:
+        raise ManifestError(f"{path.name}: last_update.files: must not be empty")
+    for key, digest in files.items():
+        if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
+            raise ManifestError(
+                f"{path.name}: last_update.files.{key}: must be a SHA-256 in lowercase hexadecimal"
+            )
     return LastUpdate(
         date=date,
         url=_text(data["url"], "last_update.url", path),
         where=_text(data["where"], "last_update.where", path),
         read_on=read_on,
+        files=dict(files),
     )
 
 

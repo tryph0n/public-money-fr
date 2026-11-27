@@ -13,7 +13,9 @@ from core.fetch.fetcher import (
     Fetcher,
 )
 from core.fetch.http import FetchError
+from core.fetch.lockfile import Lockfile
 from core.publish.card import CardError
+from core.publish.freshness import StaleDateError
 from core.publish.hf_check import DATASET_NAMES
 from core.publish.publisher import PublishError, run
 from core.sources.manifest import MANIFEST_DIR, ManifestError, load_manifest
@@ -46,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
         "shows neither a refusal nor an unchanged hash",
     )
     publish.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
+    publish.add_argument("--lock", type=Path, default=DEFAULT_LOCK_PATH)
     return parser
 
 
@@ -67,9 +70,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         logger.error("%s", error)
         return 2
     if args.command == "publish":
+        if not args.lock.is_file():
+            logger.error("no lockfile at %s; run the fetch first or give --lock", args.lock)
+            return 2
         try:
-            return run(args.dataset, args.tables, manifest, dry_run=args.dry_run)
-        except (PublishError, TableError, CardError) as error:
+            lock = Lockfile.load(args.lock)
+            return run(args.dataset, args.tables, manifest, lock, dry_run=args.dry_run)
+        except (PublishError, TableError, CardError, StaleDateError) as error:
             logger.error("%s", error)
             return 2
     unknown = [source_id for source_id in args.source_ids if source_id not in manifest]

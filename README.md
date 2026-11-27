@@ -59,6 +59,15 @@ a refusal nor an unchanged hash. A network or Hub error ends the command with th
 library and a non-zero exit code. A real run reads the token from the `HF_TOKEN` environment
 variable only; it is a GitHub Actions secret.
 
+A publish, the dry run included, also reads the lockfile (`--lock`, `sources.lock.json` by
+default) and stops with exit code 2 when a pinned file of an input changed after its date of
+last update was read: the manifest field `last_update.files` holds the SHA-256 of each file that
+the date was read for, and the publish compares it with the lockfile (with the manifest
+`sha256` for a manual file) in `core/publish/freshness.py`. Nothing is uploaded. The error names
+the source, the files and `last_update.url`. After such a stop, read the date again at
+`last_update.url`, update `last_update` in the manifest (`date`, `where`, `read_on`, `files`),
+and commit it with the new lockfile in one pull request; the next run publishes.
+
 ## Develop
 
 Install: `uv sync`
