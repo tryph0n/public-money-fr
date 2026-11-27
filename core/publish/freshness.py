@@ -34,8 +34,9 @@ def current_checksums(source: Source, lock: Lockfile) -> dict[str, str] | None:
         lock: The lockfile.
 
     Returns:
-        The checksum by file key: the manifest `sha256` for a manual file, the lockfile entry
-        for any other file. None if the lockfile has no entry for the source.
+        A mapping from file key to checksum, taken from the manifest `sha256` for a manual file
+        and from the lockfile for any other file; None if the lockfile has no entry for the
+        source.
     """
     if source.access["kind"] == "manual":
         return {key: source.access["sha256"] for key in file_keys(source)}
