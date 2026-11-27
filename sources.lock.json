@@ -11,9 +11,9 @@
     "lfi-2019-voted": {
       "records": {
         "path": "records.json",
-        "retrieved_on": "2026-11-26",
-        "sha256": "767eefcd5013e15d6c8cb96a0ba17bf3049f97fe2be0daffd793c954ba1497fa",
-        "size": 1506198
+        "retrieved_on": "2026-11-27",
+        "sha256": "dbe9698fc641ba267273caf079b5e470c7d1bc16baddad0aaedc6a4da014a9bb",
+        "size": 1344342
       }
     },
     "plr-2015-execution": {

@@ -131,7 +131,7 @@ def test_lockfile_records_size_and_sha256(server: FakeServer, tmp_path: Path) ->
     entry = json.loads((tmp_path / "sources.lock.json").read_text())["sources"]["lfi-2019-voted"][
         "records"
     ]
-    data = b'[{"a": 1}]'
+    data = b'[{"a":1}]'
     assert entry["size"] == len(data)
     assert entry["sha256"] == sha256_of(data)
     assert (tmp_path / "raw" / "lfi-2019-voted" / entry["path"]).read_bytes() == data
@@ -162,7 +162,39 @@ def test_a_changed_cache_file_is_fetched_again(server: FakeServer, tmp_path: Pat
     result.path.write_bytes(b"corrupted")
     again = fetcher(server, tmp_path).fetch(source)[0]
     assert again.downloaded
-    assert again.path.read_bytes() == b'[{"a": 1}]'
+    assert again.path.read_bytes() == b'[{"a":1}]'
+
+
+def stored_records(server: FakeServer, tmp_path: Path, export: bytes) -> bytes:
+    sources = serve_manifest(server, load_manifest(MANIFEST_DIR), tmp_path / "manual")
+    source = sources["lfi-2019-voted"]
+    path = f"/api/explore/v2.1/catalog/datasets/{source.access['dataset_id']}/exports/json"
+    server.serve(path, body(export, "application/json"))
+    return fetcher(server, tmp_path).fetch(source)[0].path.read_bytes()
+
+
+def test_records_in_another_order_give_the_same_bytes(server: FakeServer, tmp_path: Path) -> None:
+    first = b'[{"b": "\\u00e9", "a": 1}, {"a": 2, "b": "x"}]'
+    second = b'[{"b": "x", "a": 2}, {"a": 1, "b": "\\u00e9"}]'
+    one = stored_records(server, tmp_path / "one", first)
+    two = stored_records(server, tmp_path / "two", second)
+    assert one == two
+    assert sha256_of(one) == sha256_of(two)
+
+
+def test_a_changed_added_or_removed_record_changes_the_sha256(
+    server: FakeServer, tmp_path: Path
+) -> None:
+    before = stored_records(server, tmp_path / "one", b'[{"a": 1}, {"a": 2}]')
+    changed = stored_records(server, tmp_path / "two", b'[{"a": 1}, {"a": 3}]')
+    added = stored_records(server, tmp_path / "three", b'[{"a": 1}, {"a": 2}, {"a": 2}]')
+    removed = stored_records(server, tmp_path / "four", b'[{"a": 1}]')
+    assert len({sha256_of(x) for x in (before, changed, added, removed)}) == 4
+
+
+def test_records_export_must_be_a_list(server: FakeServer, tmp_path: Path) -> None:
+    with pytest.raises(FetchError, match="list of records"):
+        stored_records(server, tmp_path, b'{"a": 1}')
 
 
 def test_attachment_by_title_must_exist(server: FakeServer, tmp_path: Path) -> None:
