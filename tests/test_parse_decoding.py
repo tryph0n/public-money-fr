@@ -23,12 +23,12 @@ ENCODING_ROWS = [
     ("LFI2016-BG-Action_Titre.csv", "cp1252", ";", 4, "AELF 2015", "61 692 523"),
     ("LFI2017-BG-Action_Titre.csv", "cp1252", ";", 4, "AELF 2016", "59 992 865"),
     (
-        "RBDE-2015-Ressource-budgetaire-CP.csv",
+        "SYNTHETIC-Ressource-budgetaire-CP.csv",
         "cp1252",
         ";",
         1,
         "Crédits CP ouverts par LFI",
-        "357 732 536",
+        "123 456 789",
     ),
     ("LFI_2018_ACT_CAT_TIT_BG_CAS_CCF.csv", "cp1252", ";", 1, "AE LFI 2018", "42 355 399"),
     (

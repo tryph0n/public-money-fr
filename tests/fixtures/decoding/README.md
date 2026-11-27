@@ -1,7 +1,7 @@
 # Fixtures of the decoding and number-parsing helpers
 
-Each file is a byte-for-byte extract of a real file, at most 30 lines, kept with its own
-encoding and line ends (`.gitattributes` turns off any line-end conversion here). "Lines" are
+Each file, except the two named below, is a byte-for-byte extract of a real file, at most 30
+lines, kept with its own encoding and line ends (`.gitattributes` turns off any line-end conversion here). "Lines" are
 line numbers of the source file, counting LF bytes, the header being line 1, and a range such
 as `1-8` is kept in order. The datasets are on `data.economie.gouv.fr` (attachment with the
 file name as title) unless the source column says otherwise; they were read on 26 November
@@ -11,7 +11,6 @@ file name as title) unless the source column says otherwise; they were read on 2
 | --- | --- | --- |
 | `LFI2016-BG-Action_Titre.csv` | `loi-de-finances-initiale-pour-2016-lfi-2016` | 1-8 |
 | `LFI2017-BG-Action_Titre.csv` | `loi-de-finances-initiale-pour-2017-lfi-2017` | 1-8 |
-| `RBDE-2015-Ressource-budgetaire-CP.csv` | `https://www.ccomptes.fr/sites/default/files/EzPublish/RBDE-2015-Ressource-budgetaire-CP.csv` (Cour des comptes) | 1-5 |
 | `LFI_2018_ACT_CAT_TIT_BG_CAS_CCF.csv` | `loi-de-finances-initiale-pour-2018-lfi-2018` | 1-6 |
 | `LFI2020-crédits.csv` | `projet-de-loi-de-finances-initiale-pour-2020-lfi-2020` | 1-8, 2046 |
 | `LFI2020-Emplois.csv` | same dataset | 1-8 |
@@ -40,3 +39,13 @@ four `FR` rows) as `;`-delimited UTF-8 text. Cells that hold the text `NA` in th
 
 There is no fixture for `PLR2020-Credits_Destination_Nature.xls`: it is a binary workbook and
 cannot be cut to a few lines. The helpers read text files only.
+
+`SYNTHETIC-Ressource-budgetaire-CP.csv` is not an extract. It stands in for a Cour des comptes
+file of the 2015 budget results, which is under the ODbL and is not kept in this repository.
+The file is made up: the header line holds the column names of that file (names are not a
+substantial part of the database), and the two data rows hold invented labels, codes and
+amounts. It keeps what the encoding test checks: Windows-1252 bytes that are not valid UTF-8
+(accented column names such as `Crédits CP ouverts par LFI`), CRLF line ends, the `;`
+delimiter, the header on line 1, and an amount with spaces as thousands separators
+(`123 456 789`). It was written by a script that encodes the text as Windows-1252 and joins
+the lines with CRLF.
