@@ -4,18 +4,16 @@ Each table is uploaded as Parquet with a dataset card generated from the manifes
 hash of the data and the card, stored in the dataset, lets a second publish of the same
 content do nothing, so it creates no commit.
 
-The commit is made against the revision whose files were listed, so a publish that raced with
-another one fails instead of deleting the files that the other one added.
+A publish never deletes a file. If the dataset holds a table file that the publish does not
+hold, the publish stops before any upload, so a run that builds one table fewer cannot remove
+a table that the app reads. Other files that the publish does not hold stay as they are.
 
-The commit also deletes every file of the dataset that the publish does not hold (except
-`.gitattributes`), so each data file in the dataset is named on the card with its inputs and
-their notices. A publish must therefore give every table of the dataset.
-
-A dry run prints the files, the card and the files that a publish would delete. It reads the
-file list of the public dataset without a token and writes nothing.
+A dry run makes no network call: it prints the files and the card that a publish would send.
+It does not read the dataset, so it shows neither a refusal nor an unchanged hash.
 
 The token is read by `huggingface_hub` from the `HF_TOKEN` environment variable. This module
-never receives it as an argument and never logs it.
+never receives it as an argument and never logs it. A network or Hub error is not caught: it
+ends the command with the library's own error.
 """
 
 import hashlib
@@ -24,15 +22,12 @@ import logging
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Protocol
-from urllib.parse import urlparse
 
-import httpx2
 import pyarrow as pa
 import pyarrow.parquet as pq
-from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi, constants
-from huggingface_hub.errors import RepositoryNotFoundError
+from huggingface_hub import CommitOperationAdd, HfApi
 
 from core.publish.card import build_card
 from core.publish.hf_check import CARD_PATH, DATASET_NAMES, NAMESPACE
@@ -42,7 +37,7 @@ from core.tables.writer import read_metadata
 logger = logging.getLogger(__name__)
 
 HASH_PATH = "content.sha256"
-KEPT_PATHS = (".gitattributes",)
+TABLE_DIR = "data"
 
 
 class PublishError(ValueError):
@@ -54,30 +49,18 @@ class HubApi(Protocol):
 
     def create_repo(self, repo_id: str, *, repo_type: str, exist_ok: bool) -> object: ...
 
-    def repo_info(self, repo_id: str, *, repo_type: str) -> "RepoHead": ...
+    def list_repo_files(self, repo_id: str, *, repo_type: str) -> list[str]: ...
 
-    def list_repo_files(self, repo_id: str, *, repo_type: str, revision: str) -> list[str]: ...
-
-    def hf_hub_download(
-        self, repo_id: str, filename: str, *, repo_type: str, revision: str
-    ) -> str: ...
+    def hf_hub_download(self, repo_id: str, filename: str, *, repo_type: str) -> str: ...
 
     def create_commit(
         self,
         repo_id: str,
-        operations: Sequence[CommitOperationAdd | CommitOperationDelete],
+        operations: Sequence[CommitOperationAdd],
         *,
         commit_message: str,
         repo_type: str,
-        parent_commit: str,
     ) -> object: ...
-
-
-class RepoHead(Protocol):
-    """The part of the repository information that the publisher uses."""
-
-    @property
-    def sha(self) -> str | None: ...
 
 
 @dataclass(frozen=True)
@@ -159,7 +142,7 @@ def prepare(dataset: str, paths: Sequence[Path], manifest: Mapping[str, Source])
         digest.update(f"{item.table}:{_data_hash(path)}\n".encode())
     content_hash = digest.hexdigest()
     files = {
-        f"data/{item.table}.parquet": path.read_bytes()
+        f"{TABLE_DIR}/{item.table}.parquet": path.read_bytes()
         for item, path in zip(metadata, paths, strict=True)
     }
     files[CARD_PATH] = build_card(name, metadata, manifest).encode()
@@ -167,79 +150,93 @@ def prepare(dataset: str, paths: Sequence[Path], manifest: Mapping[str, Source])
     return Upload(repo_id=repo_id, files=files, content_hash=content_hash, tables=len(paths))
 
 
-def stale_files(present: Sequence[str], upload: Upload) -> list[str]:
-    """List the files of the dataset that a publish deletes.
-
-    Args:
-        present: The files that the dataset holds now.
-        upload: What the publish sends.
-
-    Returns:
-        The files that the upload does not hold, except `.gitattributes`, sorted.
-    """
-    return sorted(set(present) - set(upload.files) - set(KEPT_PATHS))
-
-
-def describe(upload: Upload, stale: Sequence[str]) -> str:
+def describe(upload: Upload) -> str:
     """Describe an upload for a dry run.
 
     Args:
         upload: What a publish would send.
-        stale: The files that it would delete.
 
     Returns:
-        One line for the dataset, one line for each file with its size, one line for each file
-        to delete, then the card.
+        One line for the dataset, one line for each file with its size, then the card.
     """
     lines = [f"dry run: would upload to {upload.repo_id} (content hash {upload.content_hash})"]
     lines.extend(f"  {path} ({len(data)} bytes)" for path, data in sorted(upload.files.items()))
-    lines.append(f"would delete {_count(len(stale), 'file')}" + (":" if stale else ""))
-    lines.extend(f"  {path}" for path in stale)
     lines.extend(["", f"{CARD_PATH}:", upload.files[CARD_PATH].decode()])
     return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class CommitPlan:
+    """The commit of a publish."""
+
+    operations: Sequence[CommitOperationAdd]
+    message: str
+
+
+def plan_commit(
+    present_files: Sequence[str], stored_hash: str | None, upload: Upload
+) -> CommitPlan | None:
+    """Decide what a publish commits.
+
+    Args:
+        present_files: The files that the dataset holds now.
+        stored_hash: The content hash stored in the dataset, or None if it holds none.
+        upload: What the publish sends.
+
+    Returns:
+        The commit, or None if the stored hash equals the hash of the upload.
+
+    Raises:
+        PublishError: If the dataset holds a table file that the upload does not hold.
+    """
+    missing = sorted(
+        path
+        for path in present_files
+        if path.endswith(".parquet")
+        and PurePosixPath(path).parent == PurePosixPath(TABLE_DIR)
+        and path not in upload.files
+    )
+    if missing:
+        raise PublishError(
+            f"{upload.repo_id} holds table files that this publish does not hold, so it would "
+            f"drop them from the dataset: {', '.join(missing)}. Nothing was uploaded."
+        )
+    if stored_hash == upload.content_hash:
+        return None
+    operations = [
+        CommitOperationAdd(path_in_repo=path, path_or_fileobj=data)
+        for path, data in sorted(upload.files.items())
+    ]
+    return CommitPlan(operations, f"data: publish {_count(upload.tables, 'table')}")
+
+
 def publish(api: HubApi, upload: Upload) -> bool:
-    """Upload the files and delete the stale ones in one commit, unless nothing changed.
+    """Upload the files in one commit, unless nothing changed.
 
     Args:
         api: Hub client.
         upload: What to send.
 
     Returns:
-        True if a commit was created, False if the content hash had not changed and the
-        dataset held no stale file.
+        True if a commit was created, False if the content hash had not changed.
 
     Raises:
-        PublishError: If the Hub gives no revision for the dataset.
+        PublishError: If the dataset holds a table file that the upload does not hold.
     """
     api.create_repo(upload.repo_id, repo_type="dataset", exist_ok=True)
-    head = api.repo_info(upload.repo_id, repo_type="dataset").sha
-    if head is None:
-        raise PublishError(f"{upload.repo_id}: the Hub gave no revision for the dataset")
-    present = api.list_repo_files(upload.repo_id, repo_type="dataset", revision=head)
-    stale = stale_files(present, upload)
-    if not stale and HASH_PATH in present:
-        stored = api.hf_hub_download(upload.repo_id, HASH_PATH, repo_type="dataset", revision=head)
-        if Path(stored).read_text(encoding="utf-8").strip() == upload.content_hash:
-            logger.info("%s: content unchanged, nothing to commit", upload.repo_id)
-            return False
-    operations: list[CommitOperationAdd | CommitOperationDelete] = [
-        CommitOperationAdd(path_in_repo=path, path_or_fileobj=data)
-        for path, data in sorted(upload.files.items())
-    ]
-    operations.extend(CommitOperationDelete(path_in_repo=path) for path in stale)
-    message = f"data: publish {_count(upload.tables, 'table')}"
-    if stale:
-        message += f", delete {_count(len(stale), 'stale file')}"
+    present = api.list_repo_files(upload.repo_id, repo_type="dataset")
+    stored = None
+    if HASH_PATH in present:
+        path = api.hf_hub_download(upload.repo_id, HASH_PATH, repo_type="dataset")
+        stored = Path(path).read_text(encoding="utf-8").strip()
+    plan = plan_commit(present, stored, upload)
+    if plan is None:
+        logger.info("%s: content unchanged, nothing to commit", upload.repo_id)
+        return False
     api.create_commit(
-        upload.repo_id,
-        operations,
-        commit_message=message,
-        repo_type="dataset",
-        parent_commit=head,
+        upload.repo_id, plan.operations, commit_message=plan.message, repo_type="dataset"
     )
-    logger.info("%s: committed %d files, deleted %d", upload.repo_id, len(upload.files), len(stale))
+    logger.info("%s: committed %d files", upload.repo_id, len(upload.files))
     return True
 
 
@@ -255,39 +252,26 @@ def run(
     Args:
         dataset: Name of the dataset.
         paths: Parquet files written by `write_table`; every table of the dataset, because
-            the publish deletes the files that it does not hold.
+            a publish refuses to drop a table that the dataset holds.
         manifest: The sources by id.
-        dry_run: Print what would be uploaded and deleted, and the card, then stop. It reads
-            the file list of the public dataset without a token and writes nothing.
+        dry_run: Print the files and the card that would be uploaded, then stop. It makes no
+            network call and does not read the dataset.
 
     Returns:
         0 on success, 1 if the token is missing for a real run.
 
     Raises:
         PublishError: If the dataset is unknown, a file is missing, two files hold the
-            same table, or the Hub cannot be reached or refuses a request (including a
-            commit that another publish overtook).
+            same table, or the dataset holds a table that the files do not hold.
         TableError: If a file has no table metadata.
         CardError: If the card cannot state what the licences of the inputs ask for.
     """
     upload = prepare(dataset, paths, manifest)
-    try:
-        if dry_run:
-            print(describe(upload, stale_files(_present_files(upload.repo_id), upload)))
-            return 0
-        if not os.environ.get("HF_TOKEN"):
-            logger.error("HF_TOKEN is not set")
-            return 1
-        publish(HfApi(), upload)
-    except httpx2.HTTPError as error:
-        host = urlparse(constants.ENDPOINT).hostname
-        raise PublishError(f"the request to {host} failed: {error}") from error
+    if dry_run:
+        print(describe(upload))
+        return 0
+    if not os.environ.get("HF_TOKEN"):
+        logger.error("HF_TOKEN is not set")
+        return 1
+    publish(HfApi(), upload)
     return 0
-
-
-def _present_files(repo_id: str) -> list[str]:
-    """List the files of a public dataset without a token; none if it does not exist."""
-    try:
-        return HfApi(token=False).list_repo_files(repo_id, repo_type="dataset")
-    except RepositoryNotFoundError:
-        return []

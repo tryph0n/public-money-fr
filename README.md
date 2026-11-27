@@ -44,17 +44,20 @@ only its card (`README.md`) and `.gitattributes`.
 Publishing: `uv run python -m core.cli publish DATASET TABLE.parquet... [--dry-run]` uploads
 tables written by `write_table` to the dataset `DATASET` (core, finance, security or election)
 in one commit, with a card generated from the manifest (`core/publish/publisher.py`,
-`core/publish/card.py`). The same commit deletes every file of the dataset that the publish does
-not hold (except `.gitattributes`), so a publish gives every table of the dataset. The card
-lists the tables, the inputs, producers, licences, build date, and for each input the date of
-its last update that the producer states (manifest field `last_update`); it refuses an input
-without that date. For a CC BY 4.0 input it links the material and prints the change notes that
-the table builder stores with `write_table(..., changes=...)`, and refuses the input without
-them. For an input with no declared licence it gives the basis of reuse from the manifest, the
-source page and the date of its last update. A second publish of the same content creates no
-commit. `--dry-run` prints the files, the files it would delete and the card; it reads the file
-list of the public dataset without a token and writes nothing. A real run reads the token from
-the `HF_TOKEN` environment variable only; it is a GitHub Actions secret.
+`core/publish/card.py`). A publish never deletes a file. If the dataset holds a table file
+(`data/*.parquet`) that the publish does not hold, it stops before any upload with exit code 2
+and names the file, so a publish gives every table of the dataset; other files, for example one
+added by hand, stay and do not block. The card lists the tables, the inputs, producers,
+licences, build date, and for each input the date of its last update that the producer states
+(manifest field `last_update`); it refuses an input without that date. For a CC BY 4.0 input it
+links the material and prints the change notes that the table builder stores with
+`write_table(..., changes=...)`, and refuses the input without them. For an input with no
+declared licence it gives the basis of reuse from the manifest, the source page and the date of
+its last update. A second publish of the same content creates no commit. `--dry-run` prints the
+files and the card and makes no network call; it does not read the dataset, so it shows neither
+a refusal nor an unchanged hash. A network or Hub error ends the command with the error of the
+library and a non-zero exit code. A real run reads the token from the `HF_TOKEN` environment
+variable only; it is a GitHub Actions secret.
 
 ## Develop
 

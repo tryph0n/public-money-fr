@@ -40,7 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("dataset", choices=DATASET_NAMES)
     publish.add_argument("tables", nargs="+", type=Path, help="Parquet files from write_table")
     publish.add_argument(
-        "--dry-run", action="store_true", help="print what would be uploaded and deleted"
+        "--dry-run",
+        action="store_true",
+        help="print the files and the card that would be uploaded; makes no network call, so it "
+        "shows neither a refusal nor an unchanged hash",
     )
     publish.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR)
     return parser

@@ -33,7 +33,6 @@ intersphinx_mapping = {
 # the library's documentation inventory does not list.
 nitpick_ignore = [
     ("py:class", "huggingface_hub._commit_api.CommitOperationAdd"),
-    ("py:class", "huggingface_hub._commit_api.CommitOperationDelete"),
 ]
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}

@@ -749,7 +749,6 @@ name = "public-money-fr"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "httpx2" },
     { name = "huggingface-hub" },
     { name = "pandas" },
     { name = "pandera" },
@@ -775,7 +774,6 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx2", specifier = ">=2.16.2" },
     { name = "huggingface-hub", specifier = ">=2.4.0" },
     { name = "pandas", specifier = ">=3.1.1" },
     { name = "pandera", specifier = ">=0.36.0" },
